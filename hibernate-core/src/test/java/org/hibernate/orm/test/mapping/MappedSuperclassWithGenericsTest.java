@@ -147,7 +147,7 @@ public class MappedSuperclassWithGenericsTest {
 	@Entity( name = "SimpleEntity" )
 	public static class SimpleEntity extends GenericIdBaseEntity<Long> {
 		@Column
-		private String string;
+		private String stringx; // NuoDB String is a Reserved word
 
 		public SimpleEntity() {
 			super( null );
@@ -155,7 +155,7 @@ public class MappedSuperclassWithGenericsTest {
 
 		protected SimpleEntity(Long id, String string) {
 			super( id );
-			this.string = string;
+			this.stringx = string;
 		}
 	}
 }

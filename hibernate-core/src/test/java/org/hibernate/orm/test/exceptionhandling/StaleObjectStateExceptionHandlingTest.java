@@ -113,7 +113,7 @@ public class StaleObjectStateExceptionHandlingTest extends BaseExceptionHandling
 		private String name;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 	}
 }

@@ -58,7 +58,7 @@ public class LoadParentChildEntityTest {
 	}
 
 
-	@Entity(name = "containing")
+	@Entity(name = "ContainingEntity") // NUODB 2025-04-24 CONTAINING is reserved word
 	public static class ContainingEntity {
 
 		@Id

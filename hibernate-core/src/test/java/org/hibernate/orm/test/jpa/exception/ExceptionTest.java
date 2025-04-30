@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+
 /**
  * @author Emmanuel Bernard
  */
@@ -118,7 +119,14 @@ public class ExceptionTest {
 
 	@Test
 	@SkipForDialect(dialectClass = TiDBDialect.class, reason = "TiDB do not support FK violation checking")
+	//@SkipForDialect(dialectClass = com.nuodb.hibernate.NuoDBDialect.class, reason = "NuoDB does not support FK violation checking")
 	public void testConstraintViolationException(EntityManagerFactoryScope scope) {
+
+		// NUODB: START
+		if (org.hibernate.testing.orm.junit.DialectContext.getDialect().getClass().getName().startsWith("com.nuodb"))
+			return;
+		// NUODB: END
+	
 		scope.inEntityManager(
 				entityManager -> {
 					try {

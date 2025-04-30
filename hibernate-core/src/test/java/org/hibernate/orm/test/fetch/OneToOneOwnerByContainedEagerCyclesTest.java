@@ -13,6 +13,7 @@ import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
 
 import org.junit.Test;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
@@ -88,7 +89,7 @@ public class OneToOneOwnerByContainedEagerCyclesTest extends BaseCoreFunctionalT
 		} );
 	}
 
-	@Entity(name = "Containing")
+	@Entity(name = "ContainingEntity" ) // NUODB: 2025-04-12 CONTAINING reserved word
 	public static class Containing {
 
 		@Id

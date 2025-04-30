@@ -74,7 +74,7 @@ public class JoinedInheritanceOptimisticForceIncrementTest extends BaseNonConfig
 		private Long id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private Integer version;
 
 		private String name;

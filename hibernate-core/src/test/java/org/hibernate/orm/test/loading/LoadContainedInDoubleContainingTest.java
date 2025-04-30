@@ -49,7 +49,7 @@ public class LoadContainedInDoubleContainingTest {
 		} );
 	}
 
-	@Entity(name = "Containing")
+	@Entity(name = "ContainingEntity") // NUODB 2025-04-24 CONTAINING is reserved word
 	public static class Containing {
 
 		@Id

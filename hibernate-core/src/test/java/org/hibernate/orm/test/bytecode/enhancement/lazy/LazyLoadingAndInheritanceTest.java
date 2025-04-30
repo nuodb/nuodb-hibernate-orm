@@ -72,7 +72,7 @@ public class LazyLoadingAndInheritanceTest {
 		} );
 	}
 
-	@Entity(name = "Containing")
+	@Entity(name = "ContainingEntity") // NUODB: 2025-04-12 CONTAINING reserved word
 	static class Containing {
 
 		@Id

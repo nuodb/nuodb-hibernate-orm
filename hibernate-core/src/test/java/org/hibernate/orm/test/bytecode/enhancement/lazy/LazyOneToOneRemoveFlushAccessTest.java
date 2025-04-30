@@ -160,7 +160,7 @@ public class LazyOneToOneRemoveFlushAccessTest {
 		private Integer id;
 
 		@OneToOne( fetch = FetchType.LAZY )
-		@JoinColumn( name = "containing" )
+		// @JoinColumn( name = "containing" )  // NUODB 2025-04-24 CONTAINING is a reserved word
 		private ContainingEntity containing;
 
 		public Integer getId() {

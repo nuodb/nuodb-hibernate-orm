@@ -32,7 +32,7 @@ public class VersionedCompiledCode extends AbstractCompiledCode{
 	}
 
 	@Version
-	@Column(name = "ver")
+	@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 	public Integer getVersion() {
 		return version;
 	}

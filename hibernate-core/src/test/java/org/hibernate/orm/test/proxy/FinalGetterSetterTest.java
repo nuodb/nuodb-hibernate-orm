@@ -277,7 +277,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -314,7 +314,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -350,7 +350,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -386,7 +386,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -422,7 +422,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -458,7 +458,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
@@ -494,7 +494,7 @@ public class FinalGetterSetterTest {
 		private int id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-04-11: ver is reserved word
 		private int version;
 
 		private String name;
