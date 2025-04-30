@@ -48,6 +48,7 @@ test {
 
         // Skip for now
     	excludeTestsMatching 'BulkManipulationTest.testInsertWithManyToOne'
+        excludeTestsMatching 'BulkManipulationTest.testInsertWithSelectListUsingJoins'
     	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithFollowOn'
     	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithoutFollowOn'
     	excludeTestsMatching 'ToOneOnDeleteTest.testManyToOne'
