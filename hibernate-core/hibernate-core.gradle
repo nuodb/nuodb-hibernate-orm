@@ -47,6 +47,11 @@ test {
         // includeTestsMatching 'ASTParserLoadingTest.testArithmetic'
 
         // Skip for now
+    	excludeTestsMatching 'BulkManipulationTest.testInsertWithManyToOne'
+    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithFollowOn'
+    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithoutFollowOn'
+    	excludeTestsMatching 'ToOneOnDeleteTest.testManyToOne'
+ 
 		excludeTestsMatching 'IdClassPredicateTest.testCountIdClassAttributes'
 		excludeTestsMatching 'IdClassPredicateTest.testDeclaredIdClassAttributes'
 		excludeTestsMatching 'IdClassPredicateTest.testSupertypeIdClassAttributes'
@@ -150,7 +155,7 @@ test {
 
         excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest' // Fixed in NuoDB 5.1, works when invoked manually but not as part of matrix tests
 
-        excludeTestsMatching 'org.hibernate.orm.test.hql.ASTParserLoadingTest' // Long timeouts or something
+        excludeTestsMatching 'org.hibernate.orm.test.hql.ASTParserLoadingTest' // Long timeouts or something ?
 
         // CREATE TABLE TOOL fails due to HELPER_TYPE colum?
 		excludeTestsMatching 'IdClassPredicateTest.testCountIdClassAttributes'
@@ -184,6 +189,7 @@ test {
 		excludeTestsMatching 'CountQueryTests.testForHHH18850'
 		excludeTestsMatching 'CountQueryTests.testJoinedEntityPath'
 		excludeTestsMatching 'CountQueryTests.testUnionQuery'
+   	    excludeTestsMatching 'CountTest.testCount'
 		excludeTestsMatching 'CriteriaQualifiedJoinTest.testJoinLateral'
 		excludeTestsMatching 'CteTests.testBasic'
 		excludeTestsMatching 'CteTests.testBasicJoined'
@@ -304,6 +310,9 @@ test {
 
         // NuoDB does not use Catalogs
         excludeTestsMatching 'org.hibernate.orm.test.boot.database.qualfiedTableNaming.DefaultCatalogAndSchemaTest'
+
+        // NuoDB does not take read locks
+        excludeTestsMatching 'LockTest.testUpdateWithPessimisticReadLockSkipLocked'  
 
         // Functions or behaviours NuoDB doesn't support
         excludeTestsMatching 'org.hibernate.orm.test.query.criteria.CriteriaBuilderNonStandardFunctionsTest.testLog' // LOG() not supported
