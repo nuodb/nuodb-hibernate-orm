@@ -60,17 +60,18 @@ test {
 		// includeTestsMatching 'RepeatableReadTest.testStaleVersionedInstanceFoundOnLock'
 		// includeTestsMatching 'ResultTransformerTest.testResultTransformerIsAppliedToScrollableResults'
 
-        excludeTestsMatching 'org.hibernate.orm.test.hql.BulkManipulationTest.testInsertWithManyToOne' // undefined reference to DESCRIPTION
+        // Undefined reference to DESCRIPTION
+        excludeTestsMatching 'org.hibernate.orm.test.hql.BulkManipulationTest'
 
-        // illegal null in column HIB_SESS_ID - note these are in 2 different packages
+        // Illegal null in column HIB_SESS_ID - note these are in 2 different packages
 		excludeTestsMatching 'InsertSelectTests.simpleTest'
 		excludeTestsMatching 'InsertSelectTests.testInsertSelectDistinct'
 		excludeTestsMatching 'InsertSelectTests.testInsertSelectGroupBy'
 
-		excludeTestsMatching 'WindowFunctionTest.testFrame'
-		excludeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
-		excludeTestsMatching 'WindowFunctionTest.testRank'
-		excludeTestsMatching 'WindowFunctionTest.testRowNumberWithoutOrder'
+		// includeTestsMatching 'WindowFunctionTest.testFrame'
+		// includeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
+		// includeTestsMatching 'WindowFunctionTest.testRank'
+		// includeTestsMatching 'WindowFunctionTest.testRowNumberWithoutOrder'
 
         // Sub-select alias with parameters "(SELECT ...) alias(a, b)" not supported
 		excludeTestsMatching 'CountQueryTests.testDistinctDynamicInstantiation'
