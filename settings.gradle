@@ -41,8 +41,9 @@ dependencyResolutionManagement {
             }
         }
 
-        //Allow loading additional dependencies from a local path;
-        //useful to load JDBC drivers which can not be distributed in public.
+        // Allow loading additional dependencies from a local path;
+        // useful to load JDBC drivers which can not be distributed in public.
+        // Or if your local maven repository is not in the default location.
         if (System.env['ADDITIONAL_REPO'] != null) {
             flatDir {
                 dirs "${System.env.ADDITIONAL_REPO}"
