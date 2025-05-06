@@ -37,7 +37,7 @@ test {
         // Failing tests that need fixing
         // ---------------------------------------------------------------------
 
-        // These work with NuoDB 7
+        // These work with NuoDB 7 - need to retest NuoDB 6.
     	// includeTestsMatching 'InsertOrderingWithSecondaryTable.testInheritanceWithSecondaryTable'
 		// includeTestsMatching 'JpaCrossJoinTests.testCrossJoin'
     	// includeTestsMatching 'BulkManipulationTest.testInsertWithManyToOne'
@@ -68,60 +68,63 @@ test {
 		excludeTestsMatching 'InsertSelectTests.testInsertSelectDistinct'
 		excludeTestsMatching 'InsertSelectTests.testInsertSelectGroupBy'
 
-		// includeTestsMatching 'WindowFunctionTest.testFrame'
-		// includeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
-		// includeTestsMatching 'WindowFunctionTest.testRank'
-		// includeTestsMatching 'WindowFunctionTest.testRowNumberWithoutOrder'
+		excludeTestsMatching 'CteTests.testInSubquery' // Returns more than one row
+		excludeTestsMatching 'CteTests.testSubquery'  // emulation -> unsupported SQL construct
+		excludeTestsMatching 'CriteriaQualifiedJoinTest.testJoinLateral'   // emulation -> unsupported SQL construct
+		excludeTestsMatching 'HQLTest.test_hql_derived_join_example'  // emulation -> unsupported SQL construct -> on 1 and exists(...)
+        excludeTestsMatching 'org.hibernate.orm.test.query.SubQueryInFrom*'  // Predicate 1 is not a boolean operation
 
-        // Sub-select alias with parameters "(SELECT ...) alias(a, b)" not supported
-		excludeTestsMatching 'CountQueryTests.testDistinctDynamicInstantiation'
-		excludeTestsMatching 'CountQueryTests.testForHHH18850'
-		excludeTestsMatching 'CountQueryTests.testJoinedEntityPath'
-		excludeTestsMatching 'CountQueryTests.testUnionQuery'
-   	    excludeTestsMatching 'CountTest.testCount'
-		excludeTestsMatching 'CriteriaQualifiedJoinTest.testJoinLateral'
-		excludeTestsMatching 'CteTests.testBasic'
-		excludeTestsMatching 'CteTests.testBasicJoined'
-		excludeTestsMatching 'CteTests.testInSubquery'
-		excludeTestsMatching 'CteTests.testMaterialized'
-		excludeTestsMatching 'CteTests.testNested'
-		excludeTestsMatching 'CteTests.testSubquery'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryFetch'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffset'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffsetAndFetch'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstAndMaxResults'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstResult'
-		excludeTestsMatching 'CriteriaCteOffsetFetchTest.testSetMaxResults'
-		excludeTestsMatching 'CriteriaCteUnionTest.testSimpleCte'
-		excludeTestsMatching 'CriteriaCteUnionTest.testUnionCte'
-		excludeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupBy'
-		excludeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderBy'
-		excludeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderByAndHaving'
-		excludeTestsMatching 'ExpressionsTest.testSumWithSubqueryPath'
-		excludeTestsMatching 'FunctionsWithAnonymousTupleTest'
-		excludeTestsMatching 'HQLTest.test_hql_cte_materialized_example'
-		excludeTestsMatching 'HQLTest.test_hql_derived_join_example'
-        excludeTestsMatching 'HQLTest.test_hql_derived_root_example' 
-		excludeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testSimpleInSubqueryPredicate'
-		excludeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testTupleInSubqueryPredicate'
-		excludeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries'
-		excludeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries2'
-		excludeTestsMatching 'OrderByExpressionNotInSelectTest.testSubquery'
-		excludeTestsMatching 'SubqueryTests.testNoFromClauseInSubquery'
-        excludeTestsMatching 'org.hibernate.orm.test.query.SubQueryInFrom*'  // SQL Sytnax error, LEFT JOIN missing ON
-		excludeTestsMatching 'UnionOfPartitionResultsTest.testSubquery'
-		excludeTestsMatching 'UnionOfPartitionResultsTest.testSubqueryWithUnion'
-		excludeTestsMatching 'UnionOfPartitionResultsTest.testUnionOfPartitionResults'
+        excludeTestsMatching 'FetchClausePaginationTest.testFetchWithTies'
+        excludeTestsMatching 'WindowFunctionTest.testFrame'
+        excludeTestsMatching 'WindowFunctionTest.testRowNumberWithoutOrder'
 
-        // JOIN in UPDATE gets lost
-		excludeTestsMatching 'IsNullAndMappedByTest.testHqlUpdate'
-        excludeTestsMatching 'IsNullAndNotFoundTest.testHqlUpdate'
-		excludeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdate'
-		excludeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdateWithImplicitJoin'
-		excludeTestsMatching 'UpdateJoinTests.testUpdateWithJoin'
-		excludeTestsMatching 'UpdateJoinTests.testUpdateWithJoinCriteria'
+		//includeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
+		//includeTestsMatching 'WindowFunctionTest.testRank'
 
-        // WARNING: Failing tests leak connections and exhaust pool, so all subsequent tests fail
+        // Sub-select alias with parameters "(SELECT ...) alias(a, b)" not supported: FIXED
+		// includeTestsMatching 'CountQueryTests.testDistinctDynamicInstantiation'
+		// includeTestsMatching 'CountQueryTests.testForHHH18850'
+		// includeTestsMatching 'CountQueryTests.testJoinedEntityPath'
+		// includeTestsMatching 'CountQueryTests.testUnionQuery'
+   	    // includeTestsMatching 'CountTest.testCount'
+		// includeTestsMatching 'CteTests.testBasic'
+		// includeTestsMatching 'CteTests.testBasicJoined'
+		// includeTestsMatching 'CteTests.testMaterialized'
+		// includeTestsMatching 'CteTests.testNested'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryFetch'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffset'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffsetAndFetch'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstAndMaxResults'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstResult'
+		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetMaxResults'
+		// includeTestsMatching 'CriteriaCteUnionTest.testSimpleCte'
+		// includeTestsMatching 'CriteriaCteUnionTest.testUnionCte'
+		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupBy'
+		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderBy'
+		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderByAndHaving'
+		// includeTestsMatching 'ExpressionsTest.testSumWithSubqueryPath'
+		// includeTestsMatching 'FunctionsWithAnonymousTupleTest'
+		// includeTestsMatching 'HQLTest.test_hql_cte_materialized_example'
+        // includeTestsMatching 'HQLTest.test_hql_derived_root_example' 
+		// includeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testSimpleInSubqueryPredicate'
+		// includeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testTupleInSubqueryPredicate'
+		// includeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries'
+		// includeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries2'
+		// includeTestsMatching 'OrderByExpressionNotInSelectTest.testSubquery'
+		// includeTestsMatching 'SubqueryTests.testNoFromClauseInSubquery'
+		// includeTestsMatching 'UnionOfPartitionResultsTest.testSubquery'
+		// includeTestsMatching 'UnionOfPartitionResultsTest.testSubqueryWithUnion'
+		// includeTestsMatching 'UnionOfPartitionResultsTest.testUnionOfPartitionResults'
+
+        // JOIN in UPDATE gets lost: FIXED
+		// includeTestsMatching 'IsNullAndMappedByTest.testHqlUpdate'
+        // includeTestsMatching 'IsNullAndNotFoundTest.testHqlUpdate'
+		// includeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdate'
+		// includeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdateWithImplicitJoin'
+		// includeTestsMatching 'UpdateJoinTests.testUpdateWithJoin'
+		// includeTestsMatching 'UpdateJoinTests.testUpdateWithJoinCriteria'
+
+        // WARNING: Failing tests from this class leak connections and exhaust the pool, so all subsequent tests fail
         excludeTestsMatching 'org.hibernate.orm.test.hql.ASTParserLoadingTest.testEJBQLFunctions' // Cannot compare INTEGER to OBJECT?
 
         // These work when invoked manually, but not as part of test suite
@@ -251,7 +254,7 @@ test {
 
         // Dependent Right Outer Join not supported even in 7
         excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithRightJoinWithInnerImplicitJoins'
-        excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullJoin'
+        //excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullJoin'
 
         // No support for UPDATE ... ON CONFLICT
         excludeTestsMatching 'InsertConflictTests'
@@ -365,10 +368,10 @@ test {
 		excludeTestsMatching 'SubqueryOperatorsTest.testSubqueryInVariousClauses'
 
         // Multi-column value only allowed in comparison operators
-        excludeTestsMatching 'org.hibernate.orm.test.annotations.onetomany.OrderByTest.testOrderByOnIdClassProperties'
-        excludeTestsMatching 'org.hibernate.orm.test.annotations.onetomany.OneToManyTest.testJoinColumns'
-        excludeTestsMatching 'org.hibernate.orm.test.annotations.onetoone.OneToOneTest.testCompositePk'
-        excludeTestsMatching 'org.hibernate.orm.test.annotations.derivedidentities.bidirectional.CompositeIdDerivedIdWithIdClassTest'
+        // includeTestsMatching 'org.hibernate.orm.test.annotations.onetomany.OrderByTest.testOrderByOnIdClassProperties'
+        // includeTestsMatching 'org.hibernate.orm.test.annotations.onetomany.OneToManyTest.testJoinColumns'
+        // includeTestsMatching 'org.hibernate.orm.test.annotations.onetoone.OneToOneTest.testCompositePk'
+        // includeTestsMatching 'org.hibernate.orm.test.annotations.derivedidentities.bidirectional.CompositeIdDerivedIdWithIdClassTest'
 
         // NuoDB supports sequences, but not pooled sequences, as Hibernate uses them
         excludeTestsMatching 'org.hibernate.orm.test.id.enhanced.SequenceNamingStrategyTest'
