@@ -85,12 +85,13 @@ Also (last line) set `EXTERNAL_ADDRESS=127.0.0.1`.
 
 . For information on `gradle` refer to the original `README` content xref:README.adoc#gradle-primer[gradle-primer].
 
-. The tests do not clean up properly and leak connections.
+. Some tests, in particular the `ASTParserLoadingTest`, do not clean up properly and leak connections.
 To avoid this, use `SET` or `export` to set the environment variable `HIBERNATE_CONNECTION_LEAK_DETECTION` to `TRUE`.
 
 . Running the Tests
 
 * **WARNING:** You _must_ use the `--rerun-tasks` option after the first run (with either option), otherwise Gradle may not run any tests at all (it only runs tests it thinks have changed and typically we only change our JAR).
+Tests can take 20-40 minutes to run.
 +
 * **OPTION 1:** Run the tests using a database Profile (_RECOMMENDED_):
 
@@ -113,7 +114,7 @@ DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-
 
 ** After running tests:
 *** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V6.0.2)
-*** _15029 tests completed, 4 failed, 2294 skipped_ (NuoDB V7.0.0)
+*** _15062 tests completed, 0 failed, 2302 skipped_ (NuoDB V7.0.0)
 
 * The view the results report, open link:hibernate-core/target/reports/tests/test/index.html[].
 
@@ -334,3 +335,11 @@ Mostly this is due to generating syntax or using features NuoDB SQL does not sup
 ```bash
    grep -iRl "// NuoDB" hibernate-core/src/test/java/org/hibernate
 ```
+
+* If you need to change any other files, please mark the change like this:
++
+```java
+// NUODB: START ...
+...
+// NUODBL END
+````

@@ -34,7 +34,7 @@ repositories {
 test {
     filter {
         // ---------------------------------------------------------------------
-        // Failing tests that need fixing
+        // Failing tests that need fixing?
         // ---------------------------------------------------------------------
 
         // These work with NuoDB 7 - need to retest NuoDB 6.
@@ -171,12 +171,18 @@ test {
         // Not sure what this should be showing
         excludeTestsMatching 'CriteriaLiteralWithSingleQuoteTest.testLiteralProjectionAndGroupBy'
 
-        // Timezones and timestamps. Several of these time tests are only out by a millisecond!
-        excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest.*'
-        excludeTestsMatching 'org.hibernate.orm.test.timezones.*'
-        excludeTestsMatching 'org.hibernate.orm.test.timestamp.*'
-        excludeTestsMatching 'org.hibernate.orm.test.temporal.*'
-        excludeTestsMatching 'org.hibernate.orm.test.mapping.javatime.*.testLocal.*.'
+        // Timezones and timestamps. Several of these fai leven though expected and actual match
+        excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest.nativeWriteThenRead'
+        excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest.writeThenNativeRead'
+        excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest.nativeWriteThenRead'
+        excludeTestsMatching 'org.hibernate.orm.test.type.LocalDateTest.writeThenRead'
+   
+        // Timezone not picked up from Hibernate
+        excludeTestsMatching 'org.hibernate.orm.test.timestamp.JdbcTimeCustomTimeZoneTest.testTimeZone'
+        excludeTestsMatching 'org.hibernate.orm.test.timestamp.JdbcTimestampCustomSessionLevelTimeZoneTest.testTimeZone'
+        excludeTestsMatching 'org.hibernate.orm.test.timestamp.JdbcTimestampCustomTimeZoneTest.testTimeZone'
+
+        // Can't convert LocalDate, LocalTime, LocalDateTime to column type
 		excludeTestsMatching 'GlobalJavaTimeJdbcTypeTests.testLocalDate'
 		excludeTestsMatching 'GlobalJavaTimeJdbcTypeTests.testLocalDateTime'
 		excludeTestsMatching 'GlobalJavaTimeJdbcTypeTests.testLocalTime'
@@ -224,6 +230,10 @@ test {
         // sign() function in @Formaula annotation is used as-is - the registered emulation is ignored
         excludeTestsMatching 'FormulaWithPartitionByTest'
 
+        // --------------------------------------------
+        // Tests to skip due to known NuoDB limitations
+        // --------------------------------------------
+
         if (nuodbDatabaseVersion < 7) {
             // FULL OUTER JOIN not supported until NuoDB 7
             excludeTestsMatching 'EntityJoinWithJoinedInheritanceTest.testFullJoin'
@@ -239,14 +249,21 @@ test {
             excludeTestsMatching 'org.hibernate.orm.test.query.SelectForeignKeyWithMissingFromTest.testFullJoin'
             excludeTestsMatching 'org.hibernate.orm.test.query.SelectForeignKeyWithMissingFromTest.testFullJoinEntityPath'
 
-            // Not until NuoDB 7 for var_samp et al
+            // Not until NuoDB 7 for var_samp() et al
             excludeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testStatisticalFunctions'
             excludeTestsMatching 'org.hibernate.orm.test.hql.HQLTest.test_var_function_example'
         }
 
-        // --------------------------------------------
-        // Tests to skip due to known NuoDB limitations
-        // --------------------------------------------
+        // TIMESTAMP precision is always 6 (MICROSECONDS)
+        excludeTestsMatching 'FractionalSecondsTests.testUsage0'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.FractionalSecondsTest.testUsage0'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.FractionalSecondsTests.testUsage3'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.FractionalSecondsTests.testUsage9'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.JavaTimeFractionalSecondsTests.testUsage0'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.JavaTimeFractionalSecondsTests.testUsage3'
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.JavaTimeFractionalSecondsTests.testUsage9'
+
+        excludeTestsMatching 'org.hibernate.orm.test.temporal.TimePropertyTest'  // Can't use a DATE as a TIME
 
         // CASCADE DELETE not supported
         excludeTestsMatching 'ManyToManyBidirectionalTest.testRemoveMappedBySide'
