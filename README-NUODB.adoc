@@ -1,14 +1,16 @@
 image::https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.png[]
 
-:jarversion: 23.0.4-hib6
+:jarversion: 23.1.0-hib6
 :bslash: \
 
 = Hibernate and NuoDB &nbsp; &nbsp; image:https://d33wubrfki0l68.cloudfront.net/571989f106f60bced5326825bd63918a55bdf0aa/dd52a/_/img/nuodb-bird-only-green.png[width=60]
 
 This is a fork of Hibernate ORM (http://github.com/hibernate/hibernate-orm).
-We have modified branches 6.1 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
+We have modified branches 6.2 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
 The tests of interest are the matrix tests (which allow testing against multiple databases).
 Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
+
+IMPORTANT: If the NuoDB Hibernate JAR version changes, edit this README and change `:jarversion:` at the top.
 
 == Running Tests
 
@@ -307,26 +309,24 @@ To use NuoDB:
 
 // . Modified `gradle/java-module.gradle` to add `testRuntimeOnly dbLibs.nuodb` with all the other databases listed.
 
+[start=4]
 . Modified `gradle/databases.gradle` to add NuoDB and its connection properties to the `dbBundle` array.
 The properties must match those in `databases/nuodb/resources/hibernate.properties`.
 
-. Modified `settings.gradle` to check for the environment variable
-`ADDITIONAL_REPO`.
-* If found, it adds it to the list of repositories to search.
-Useful when your local Maven repository is not in the standard location.
-
 . Modified `hibernate-testing/hibernate-testing.gradle`:
-* Added references for our JDBC and Hibernate JARs.
+* To look in the local maven repository for our dialect.
+* To add dependencies for our JDBC and Hibernate JARs.
++
 This sub-project runs its own tests and `hibernate-core` is dependent on it.
 
 . Modified `hibernate-core/hibernate-core.gradle`:
 * To look in the local maven repository for our dialect.
 * To filter (excludes) tests that we know do not run.
 Mostly this is due to generating syntax or using features NuoDB SQL does not support.
-* You can annotate a class with @SkipTest to skip it for a given dialect, but this would involve changing far to many classes.
+* You can annotate a class with `@SkipTest` to skip it for a given dialect, but this would involve changing far too many classes.
 
 . Copied `BaseUnitTestCase.java` from the hibernate-testing project
-* Modified the test timeout rule, reducing it from 30 to 3 mins.
+* Modified the test timeout rule, reducing it from 30 to 3 mins (otherwise the tests take ages to run when timeout tests are failing).
 * It's in `hibernate-core/src/test/java/org/hibernate/testing/junit4` to 
 
 . Modified classes that use `Containing`, `String` or `Ver` as class or data-member names (they are reserved words in NuoDB).

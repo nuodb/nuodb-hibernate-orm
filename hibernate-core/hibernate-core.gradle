@@ -4,6 +4,7 @@
  * License: GNU Lesser General Public License (LGPL), version 2.1 or later.
  * See the lgpl.txt file in the root directory or <http://www.gnu.org/licenses/lgpl-2.1.html>.
  */
+// HIBERNATE 6.6
 import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
@@ -29,7 +30,7 @@ repositories {
 }
 
 // --------------------------------------------------------------------- //
-// -               Control which tests are included or excluded        - //
+// -          Control which tests are included or excluded 6.6         - //
 // --------------------------------------------------------------------- //
 test {
     filter {
@@ -162,9 +163,6 @@ test {
         excludeTestsMatching 'UniqueConstraintDropTest.testUniqueConstraintIsDropped'  // not dropped
 		excludeTestsMatching 'SchemaUpdateTest.testSchemaUpdateAndValidation' // Our contraint names are case sensitive
 
-        // Problem with atan2?
-        excludeTestsMatching 'CriteriaBuilderNonStandardFunctionsTest.testAtan2'
-
         // Test works, but clean up generates invalid SQL
         excludeTestsMatching 'ASTParserLoadingTest.testCollectionFetchWithDistinctionAndLimit'
 
@@ -227,9 +225,6 @@ test {
         // Contrived LIKE patterns fail (3 tests)
         excludeTestsMatching 'LikeEscapeDefaultTest'
 
-        // sign() function in @Formaula annotation is used as-is - the registered emulation is ignored
-        excludeTestsMatching 'FormulaWithPartitionByTest'
-
         // --------------------------------------------
         // Tests to skip due to known NuoDB limitations
         // --------------------------------------------
@@ -253,6 +248,9 @@ test {
             excludeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testStatisticalFunctions'
             excludeTestsMatching 'org.hibernate.orm.test.hql.HQLTest.test_var_function_example'
         }
+
+        // sign() function in @Formaula annotation is used as-is - the registered emulation is ignored
+        excludeTestsMatching 'FormulaWithPartitionByTest'
 
         // TIMESTAMP precision is always 6 (MICROSECONDS)
         excludeTestsMatching 'FractionalSecondsTests.testUsage0'
@@ -285,16 +283,19 @@ test {
         excludeTestsMatching 'org.hibernate.orm.test.jpa.query.NativeQueryResultTypeAutoDiscoveryTest.binaryTypes'  // NuoDB maps BINARY and VARBINARY to BLOB
         excludeTestsMatching 'org.hibernate.orm.test.jpa.query.NativeQueryResultTypeAutoDiscoveryTest.longBinaryType'  // NuoDB maps LONGVARCHAR to BLOB
 
+        // JIRA DB-37128: NuoDB Byte cannot be set to a negative value using a PreparedStatement
+        excludeTestsMatching 'ByteTest.testByteDataPersistenceAndRetrieval'
+
         // JIRA DB-40458: CASE statement weridness cast(? AS VARCHAR (2147483647))
 		excludeTestsMatching 'CaseStatementTest.testSearchedCaseStatementWithAllParamResults'
+
+        // JIRA DB-40459: Problem with atan2
+        excludeTestsMatching 'CriteriaBuilderNonStandardFunctionsTest.testAtan2'
 
         // JIRA DB-40465: Can't create table with HELPER_TYPE column
 		excludeTestsMatching 'IdClassPredicateTest.testCountIdClassAttributes'
 		excludeTestsMatching 'IdClassPredicateTest.testDeclaredIdClassAttributes'
 		excludeTestsMatching 'IdClassPredicateTest.testSupertypeIdClassAttributes'
-
-        // JIRA DB-37128: NuoDB Byte cannot be set to a negative value using a PreparedStatement
-        excludeTestsMatching 'ByteTest.testByteDataPersistenceAndRetrieval'
 
         // NuoDB does not use Catalogs
         excludeTestsMatching 'org.hibernate.orm.test.boot.database.qualfiedTableNaming.DefaultCatalogAndSchemaTest'
@@ -307,11 +308,12 @@ test {
 		excludeTestsMatching 'NullPrecedenceTest.testNullPrecedence'  // NuoDB does not support NULL precedence
 
         excludeTestsMatching 'org.hibernate.orm.test.query.criteria.CriteriaBuilderNonStandardFunctionsTest.testLog' // LOG() not supported
+
         excludeTestsMatching 'org.hibernate.orm.test.query.hql.StandardFunctionTests.testLog' // ln() not implemented
         excludeTestsMatching 'org.hibernate.orm.test.query.hql.StandardFunctionTests.testMathFunctions' // ln() not implemented
 
         excludeTestsMatching 'org.hibernate.orm.test.query.hql.StandardFunctionTests.testExtractFunction' // WEEK not implemented
-		excludeTestsMatching 'StandardFunctionTests.testExtractFunctionWithAssertions' // WEEK not implemented
+		excludeTestsMatching 'org.hibernate.orm.test.query.hql.StandardFunctionTests.testExtractFunctionWithAssertions' // WEEK not implemented
         excludeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testExtractFunctionWeek'  // WEEK not implemented
 
         excludeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testCastBinaryWithLength'  // NuoDB doesn't automatically truncate
@@ -400,7 +402,6 @@ test {
         excludeTestsMatching 'org.hibernate.orm.test.hql.HQLTest.test_hql_in_predicate_example_1' // CASE ... END IN (...) not supported
 
         // ResultSet is forward-only
-        excludeTestsMatching 'org.hibernate.orm.test.jpa.criteria.fetchscroll.CriteriaToScrollableResultsFetchTest.testWithScroll '
         excludeTestsMatching 'org.hibernate.orm.test.hql.ScrollableCollectionFetchingTest.testScrollingJoinFetchesEmptyResultSet'
         excludeTestsMatching 'org.hibernate.orm.test.hql.ScrollableCollectionFetchingTest.testScrollingJoinFetchesPositioning'
         excludeTestsMatching 'org.hibernate.orm.test.hql.ScrollableCollectionFetchingTest.testScrollingJoinFetchesReverse'

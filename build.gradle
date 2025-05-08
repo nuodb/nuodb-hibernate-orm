@@ -6,7 +6,7 @@
  */
 
 buildscript {
-	// BEGIN: For NUODB - only needed if running matrix tests
+	// BEGIN: For NUODB - only needed if running matrix tests?
 	// Look for our JAR locally
 	repositories {
 		mavenCentral()
