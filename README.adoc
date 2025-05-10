@@ -1,3 +1,8 @@
+= Hibernate ORM
+
+NOTE: This is a fork of the `hibernate-orm` project and we use it to test NuoDB's Hibernate Dialects.
+For more information see xref:README-NUODB.adoc[].
+
 Hibernate ORM is a powerful object/relational mapping solution for Java, and makes it easy to develop persistence logic for applications, libraries, and frameworks.
 
 Hibernate implements JPA, the standard API for object/relational persistence in Java, but also offers an extensive set of features and APIs which go beyond the specification.

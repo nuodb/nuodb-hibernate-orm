@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 import org.hibernate.metamodel.mapping.JdbcMapping;
 import org.hibernate.metamodel.mapping.internal.BasicAttributeMapping;
 import org.hibernate.metamodel.spi.MappingMetamodelImplementor;
+import org.hibernate.orm.test.mapping.basic.StringMappingTests.EntityOfStrings;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.type.descriptor.jdbc.spi.JdbcTypeRegistry;
 
@@ -46,7 +47,8 @@ public class StringMappingTests {
 		final EntityPersister entityDescriptor = mappingMetamodel.findEntityDescriptor(EntityOfStrings.class);
 
 		{
-			final BasicAttributeMapping attribute = (BasicAttributeMapping) entityDescriptor.findAttributeMapping("string");
+			// NUODB: 2025-05-08 STRING reserved word (string -> aString)
+			final BasicAttributeMapping attribute = (BasicAttributeMapping) entityDescriptor.findAttributeMapping("aString");
 			assertThat( attribute.getJavaType().getJavaTypeClass(), equalTo( String.class));
 
 			final JdbcMapping jdbcMapping = attribute.getJdbcMapping();
@@ -86,7 +88,8 @@ public class StringMappingTests {
 
 		//tag::basic-string-example[]
 		// will be mapped using VARCHAR
-		String string;
+		//String string;
+		String aString; // NUODB: 2025-05-08 STRING reserved word
 
 		// will be mapped using CLOB
 		@Lob
@@ -98,7 +101,7 @@ public class StringMappingTests {
 
 		public EntityOfStrings(Integer id, String string, String clobString) {
 			this.id = id;
-			this.string = string;
+			this.aString = string; // NUODB: Renamed
 			this.clobString = clobString;
 		}
 	}

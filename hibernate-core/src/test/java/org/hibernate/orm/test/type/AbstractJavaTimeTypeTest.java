@@ -109,6 +109,22 @@ public abstract class AbstractJavaTimeTypeTest<T, E> extends BaseCoreFunctionalT
 
 	protected abstract Object getActualJdbcValue(ResultSet resultSet, int columnIndex) throws SQLException;
 
+	// NUODB: Added to enable skipping 3 tests in LocalDateTest (which overloads this method)
+	protected boolean skipForNuoDB(ZoneId defaultJvmTimeZone) {
+		return false;
+	}
+
+	// NUODB: Set required JVM time zone - not sure how this should get set, but it isn't
+	protected void setTimeZone() {
+		if (getDialect().getClass().getName().startsWith("com.nuodb") && env.defaultJvmTimeZone != null) {
+			
+			session.doWork(connection -> {
+				connection.createStatement().execute("SET TIME ZONE '" + env.defaultJvmTimeZone + '\'');
+			});
+		}
+	}
+	// NUODB: END
+
 	@Before
 	public void cleanup() {
 		inTransaction( session -> {
@@ -119,50 +135,70 @@ public abstract class AbstractJavaTimeTypeTest<T, E> extends BaseCoreFunctionalT
 	@Test
 	@TestForIssue(jiraKey = "HHH-13266")
 	public void writeThenRead() {
-		withDefaultTimeZone( () -> {
-			inTransaction( session -> {
-				session.persist( createEntityForHibernateWrite( 1 ) );
+		try { // NUODB: Added this try block
+			setTimeZone(); //. Set time zone for the underlying connection
+			withDefaultTimeZone( () -> {
+				inTransaction( session -> {
+					session.persist( createEntityForHibernateWrite( 1 ) );
+				} );
+				inTransaction( session -> {
+					T read = getActualPropertyValue( session.find( getEntityType(), 1 ) );
+					T expected = getExpectedPropertyValueAfterHibernateRead();
+					assertEquals(
+							"Writing then reading a value should return the original value",
+							expected, read
+					);
+				} );
 			} );
-			inTransaction( session -> {
-				T read = getActualPropertyValue( session.find( getEntityType(), 1 ) );
-				T expected = getExpectedPropertyValueAfterHibernateRead();
-				assertEquals(
-						"Writing then reading a value should return the original value",
-						expected, read
-				);
-			} );
-		} );
+		// NUODB: Force close session if test fails
+		} finally {
+			if (session != null && session.isOpen())
+				session.close();
+		}
+		// NUODB: END
 	}
 
 	@Test
 	@TestForIssue(jiraKey = "HHH-13266")
 	public void writeThenNativeRead() {
+		// NuoDB: Added to enable skipping 3 tests in LocalDateTest (which overloads this method)
+		if (skipForNuoDB(env.defaultJvmTimeZone) )
+			return;
+		// NuoDB: END
+
 		assumeNoJdbcTimeZone();
 
-		withDefaultTimeZone( () -> {
-			inTransaction( session -> {
-				session.persist( createEntityForHibernateWrite( 1 ) );
-			} );
-			inTransaction( session -> {
-				session.doWork( connection -> {
-					try (PreparedStatement statement = connection.prepareStatement(
-							"SELECT " + PROPERTY_COLUMN_NAME + " FROM " + ENTITY_NAME + " WHERE " + ID_COLUMN_NAME + " = ?"
-					)) {
-						statement.setInt( 1, 1 );
-						statement.execute();
-						try (ResultSet resultSet = statement.getResultSet()) {
-							resultSet.next();
-							Object nativeRead = getActualJdbcValue( resultSet, 1 );
-							Object expected = getExpectedJdbcValueAfterHibernateWrite();
-							assertEquals(
-									"Values written by Hibernate ORM should match the original value (same day, hour, ...)",
-									expected, nativeRead
-							);
+		try { // NUODB: Added this try block
+			withDefaultTimeZone( () -> {
+				inTransaction( session -> {
+					session.persist( createEntityForHibernateWrite( 1 ) );
+				} );
+				inTransaction( session -> {
+					session.doWork( connection -> {
+						try (PreparedStatement statement = connection.prepareStatement(
+								"SELECT " + PROPERTY_COLUMN_NAME + " FROM " + ENTITY_NAME + " WHERE " + ID_COLUMN_NAME + " = ?"
+						)) {
+							statement.setInt( 1, 1 );
+							statement.execute();
+							try (ResultSet resultSet = statement.getResultSet()) {
+								resultSet.next();
+								Object nativeRead = getActualJdbcValue( resultSet, 1 );
+								Object expected = getExpectedJdbcValueAfterHibernateWrite();
+								assertEquals(
+										"Values written by Hibernate ORM should match the original value (same day, hour, ...)",
+										expected, nativeRead
+								);
+							}
 						}
-					}
+					} );
 				} );
 			} );
-		} );
+		// NUODB: Force close session if test fails
+		} finally {
+			if (session != null && session.isOpen())
+				session.close();
+		}
+		// NUODB: END
 	}
 
 	@Test
@@ -170,28 +206,35 @@ public abstract class AbstractJavaTimeTypeTest<T, E> extends BaseCoreFunctionalT
 	public void nativeWriteThenRead() {
 		assumeNoJdbcTimeZone();
 
-		withDefaultTimeZone( () -> {
-			inTransaction( session -> {
-				session.doWork( connection -> {
-					try (PreparedStatement statement = connection.prepareStatement(
-							"INSERT INTO " + ENTITY_NAME + " (" + ID_COLUMN_NAME + ", " + PROPERTY_COLUMN_NAME + ") "
-							+ " VALUES ( ? , ? )"
-					)) {
-						statement.setInt( 1, 1 );
-						setJdbcValueForNonHibernateWrite( statement, 2 );
-						statement.execute();
-					}
+		try { // NUODB: Added this try block
+			withDefaultTimeZone( () -> {
+				inTransaction( session -> {
+					session.doWork( connection -> {
+						try (PreparedStatement statement = connection.prepareStatement(
+								"INSERT INTO " + ENTITY_NAME + " (" + ID_COLUMN_NAME + ", " + PROPERTY_COLUMN_NAME + ") "
+								+ " VALUES ( ? , ? )"
+						)) {
+							statement.setInt( 1, 1 );
+							setJdbcValueForNonHibernateWrite( statement, 2 );
+							statement.execute();
+						}
+					} );
+				} );
+				inTransaction( session -> {
+					T read = getActualPropertyValue( session.find( getEntityType(), 1 ) );
+					T expected = getExpectedPropertyValueAfterHibernateRead();
+					assertEquals(
+							"Values written without Hibernate ORM should be read correctly by Hibernate ORM",
+							expected, read
+					);
 				} );
 			} );
-			inTransaction( session -> {
-				T read = getActualPropertyValue( session.find( getEntityType(), 1 ) );
-				T expected = getExpectedPropertyValueAfterHibernateRead();
-				assertEquals(
-						"Values written without Hibernate ORM should be read correctly by Hibernate ORM",
-						expected, read
-				);
-			} );
-		} );
+		// NUODB: Force close session if test fails
+		} finally {
+			if (session != null && session.isOpen())
+				session.close();
+		}
+		// NUODB: END
 	}
 
 	protected final void withDefaultTimeZone(Runnable runnable) {

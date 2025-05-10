@@ -9,6 +9,9 @@ package org.hibernate.orm.test.embeddable;
 import java.util.List;
 
 import org.hibernate.Session;
+import org.hibernate.orm.test.embeddable.MappedByEmbeddableTest.Contained;
+import org.hibernate.orm.test.embeddable.MappedByEmbeddableTest.Containing;
+import org.hibernate.orm.test.embeddable.MappedByEmbeddableTest.Embed;
 import org.hibernate.query.Query;
 
 import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
@@ -108,7 +111,8 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 
 	private void queryContaining(Session session, Integer id, String data) {
 		Query<Containing> query = session.createQuery(
-				"select c from containing c where c.embed.contained.data = :data",
+				// NUODB: 2025-04-12 CONTAINING reserved word
+				"select c from containingEntity c where c.embed.contained.data = :data",
 				Containing.class
 		);
 
@@ -123,7 +127,8 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 		assertThat( containing.getId() ).isEqualTo( containingId );
 	}
 
-	@Entity(name = "containing")
+	//@Entity(name = "containing")
+	@Entity(name = "containingEntity") // NUODB: 2025-05-08 CONTAINING reserved word
 	public static class Containing {
 
 		@Id

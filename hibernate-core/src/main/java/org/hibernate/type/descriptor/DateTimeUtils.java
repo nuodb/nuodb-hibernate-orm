@@ -456,6 +456,17 @@ public final class DateTimeUtils {
 		if ( defaultTimestampPrecision >= 9 || !temporal.isSupported( ChronoField.NANO_OF_SECOND ) ) {
 			return temporal;
 		}
+
+		// NUODB: Truncate (floor), instead of rounding, to 6 decimal places
+		// Fixed in 6.6 by Dialect.doesRoundTemporalOnOverflow()
+		if (d.getClass().getName().startsWith("com.nuodb")) {
+			// NuoDB doesn't round times to 6 decimal places, it just truncates.
+			return (T) temporal.with(
+					ChronoField.MICRO_OF_SECOND,
+					temporal.get( ChronoField.MICRO_OF_SECOND ));
+		}
+		// NUODB END
+
 		//noinspection unchecked
 		return (T) temporal.with(
 				ChronoField.NANO_OF_SECOND,
