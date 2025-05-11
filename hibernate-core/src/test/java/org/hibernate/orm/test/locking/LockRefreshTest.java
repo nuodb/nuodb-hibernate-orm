@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Version;
 
+import org.hibernate.orm.test.locking.JoinedInheritanceOptimisticForceIncrementTest.Employee;
 import org.hibernate.testing.TestForIssue;
 import org.hibernate.testing.junit4.BaseNonConfigCoreFunctionalTestCase;
 import org.hibernate.testing.junit4.CustomParameterized;
@@ -154,7 +155,8 @@ public class LockRefreshTest extends BaseNonConfigCoreFunctionalTestCase {
 		private String department;
 
 		@Version
-		@Column(name = "ver")
+		//@Column(name = "ver")
+		@Column(name = "verNum") // NUODB 2025-05-08: ver is reserved word
 		private int version;
 	}
 }

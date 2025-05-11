@@ -346,6 +346,16 @@ ext {
                         'jdbc.url'   : 'jdbc:firebirdsql://' + dbHost +'localhost/hibernate_orm_test?charSet=utf-8;TRANSACTION_READ_COMMITTED=read_committed,rec_version,wait,lock_timeout=5',
                         'connection.init_sql' : ''
                 ],
+                // NUODB
+                nuodb : [
+                        'db.dialect' : 'com.nuodb.hibernate.NuoDBDialect',
+                        'jdbc.driver': 'com.nuodb.hibernate.NuoHibernateDriver',
+                        'jdbc.user'  : 'hibernate_orm_test',
+                        'jdbc.pass'  : 'hibernate_orm_test',
+                        'connection.init_sql' : '',
+                        'jdbc.url'   : 'jdbc:com.nuodb.hib://' + dbHost + '/hibernate_orm_test?isolation=read_committed&lock-wait-timeout=10',
+                        'jdbc.datasource' : 'com.nuodb.jdbc.Driver'
+                ],
         ]
 }
 

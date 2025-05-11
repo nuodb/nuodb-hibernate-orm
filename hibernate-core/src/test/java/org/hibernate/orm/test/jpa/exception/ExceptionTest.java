@@ -120,6 +120,11 @@ public class ExceptionTest {
 	@Test
 	@SkipForDialect(dialectClass = TiDBDialect.class, reason = "TiDB do not support FK violation checking")
 	public void testConstraintViolationException(EntityManagerFactoryScope scope) {
+		// NUODB: NuoDB does not support FK violation checking
+		if (org.hibernate.testing.orm.junit.DialectContext.getDialect().getClass().getName().startsWith("com.nuodb"))
+			return;
+		// NUODB: END
+		
 		scope.inEntityManager(
 				entityManager -> {
 					try {

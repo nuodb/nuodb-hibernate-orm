@@ -32,7 +32,9 @@ public class VersionedBook extends AbstractBook{
 	}
 
 	@Version
-	@Column(name = "ver")
+	//@Column(name = "ver")
+	@Column(name = "verNum") // NUODB 2025-05-08: ver is reserved word
+
 	public Integer getVersion() {
 		return version;
 	}

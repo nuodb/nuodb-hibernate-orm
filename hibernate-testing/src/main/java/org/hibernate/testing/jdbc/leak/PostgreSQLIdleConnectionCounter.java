@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import org.hibernate.dialect.Dialect;
-import org.hibernate.dialect.PostgreSQL91Dialect;
+//import org.hibernate.dialect.PostgreSQL91Dialect;  // NUODB: Compiler can't find this
 
 /**
  * @author Vlad Mihalcea
@@ -23,7 +23,10 @@ public class PostgreSQLIdleConnectionCounter implements IdleConnectionCounter {
 
 	@Override
 	public boolean appliesTo(Class<? extends Dialect> dialect) {
-		return PostgreSQL91Dialect.class.isAssignableFrom( dialect );
+		// NUODB: Using reflection to avoid compiler failure
+		return (dialect.getClass().getSimpleName().equals("PostgreSQL91Dialect") ||
+				dialect.getClass().getSuperclass().getSimpleName().equals("PostgreSQL91Dialect"));
+		//return PostgreSQL91Dialect.class.isAssignableFrom( dialect );
 	}
 
 	@Override

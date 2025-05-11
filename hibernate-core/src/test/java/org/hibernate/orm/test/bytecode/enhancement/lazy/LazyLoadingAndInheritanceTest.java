@@ -67,7 +67,8 @@ public class LazyLoadingAndInheritanceTest extends BaseCoreFunctionalTestCase {
 		} );
 	}
 
-	@Entity(name = "Containing")
+	//@Entity(name = "Containing")
+	@Entity(name = "containingEntity") // NUODB: 2025-05-08 CONTAINING reserved word
 	private static class Containing {
 
 		@Id

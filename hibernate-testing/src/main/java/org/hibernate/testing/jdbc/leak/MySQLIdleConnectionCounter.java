@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import org.hibernate.dialect.Dialect;
-import org.hibernate.dialect.MySQL5Dialect;
+//import org.hibernate.dialect.MySQL5Dialect;  // NUODB: Compiler can't find this
 
 /**
  * @author Vlad Mihalcea
@@ -23,7 +23,10 @@ public class MySQLIdleConnectionCounter implements IdleConnectionCounter {
 
 	@Override
 	public boolean appliesTo(Class<? extends Dialect> dialect) {
-		return MySQL5Dialect.class.isAssignableFrom( dialect );
+		// NUODB: Using reflection to avoid compiler failure
+		return (dialect.getClass().getSimpleName().equals("MySQL5Dialect") ||
+				dialect.getClass().getSuperclass().getSimpleName().equals("MySQL5Dialect"));
+		//return MySQL5Dialect.class.isAssignableFrom( dialect );
 	}
 
 	@Override

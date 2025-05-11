@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import org.hibernate.dialect.Dialect;
-import org.hibernate.dialect.Oracle10gDialect;
+//import org.hibernate.dialect.Oracle10gDialect;  // NUODB: Compiler can't find this
 
 /**
  * @author Vlad Mihalcea
@@ -23,7 +23,10 @@ public class OracleIdleConnectionCounter implements IdleConnectionCounter {
 
 	@Override
 	public boolean appliesTo(Class<? extends Dialect> dialect) {
-		return Oracle10gDialect.class.isAssignableFrom( dialect );
+		// NUODB: Using reflection to avoid compiler failure
+		return (dialect.getClass().getSimpleName().equals("Oracle10gDialect") ||
+				dialect.getClass().getSuperclass().getSimpleName().equals("Oracle10gDialect"));
+		//return Oracle10gDialect.class.isAssignableFrom( dialect );
 	}
 
 	@Override

@@ -110,7 +110,8 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 
 	private void queryContaining(Session session, Integer id, String data) {
 		Query<Containing> query = session.createQuery(
-				"select c from containing c where c.embed.contained.data = :data",
+				// NUODB: 2025-04-12 CONTAINING reserved word
+				"select c from containingEntity c where c.embed.contained.data = :data",
 				Containing.class
 		);
 
@@ -125,7 +126,8 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 		assertThat( containing.getId() ).isEqualTo( containingId );
 	}
 
-	@Entity(name = "containing")
+	//@Entity(name = "containing")
+	@Entity(name = "containingEntity") // NUODB: 2025-05-08 CONTAINING reserved word
 	public static class Containing {
 
 		@Id
