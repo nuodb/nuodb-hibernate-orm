@@ -5,22 +5,25 @@ image::https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.p
 
 = Hibernate and NuoDB &nbsp; &nbsp; image:https://d33wubrfki0l68.cloudfront.net/571989f106f60bced5326825bd63918a55bdf0aa/dd52a/_/img/nuodb-bird-only-green.png[width=60]
 
+== 6.2 Branch
+
 This is a fork of Hibernate ORM (http://github.com/hibernate/hibernate-orm).
-We have modified branches 6.2 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
-The tests of interest are the matrix tests (which allow testing against multiple databases).
+We have modified branches 6.1, 6.2 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
+The tests of interest are the profile tests in hibernate-core sub-project (which allow testing against multiple databases).
 Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
+Hence we use _profiles_.
 
 IMPORTANT: If the NuoDB Hibernate JAR version changes, edit this README and change `:jarversion:` at the top.
 
 == Running Tests
 
-To run the matrix tests for NuoDB:
+To run the tests for NuoDB:
 
-. Checkout branch 6.1 or 6.6 as needed.
+. Checkout branch 6.1, 6.2 or 6.6 as needed.
 
 . Windows users are recommended to use `git bash` or WSL rather than `CMD` or _PowerShell_.
 
-. You must have Java JDK 11 or 17 installed.  Java 8 isn't supported by Hibernate 6.x, it requires Java 11 or later.
+. You must have Java JDK 11, 17 or 21 installed.  Java 8 isn't supported by Hibernate 6.x, it requires Java 11 or later.
 
 * _Option 1:_ Install `jenv` from https://github.com/jenv/jenv to manage your JVMs.
 ** You may need to tell it which JDKs (if any) you already have installed.
@@ -34,7 +37,9 @@ For example, to use 11.0.26, run `jenv local 11.0.26`.
 . Next, make sure you have our Hibernate 6 dialect jar available:
 
 * Clone https://github.com/nuodb/HibernateDialect6
-* Checkout branch 6.1 or 6.6 to match the branch of this project that you are using.
+* Checkout the branch to match the branch of this project that you are using.
+** 6.1 and 6.2 require _HibernateDialect6_ branch `hib-6.2`
+** 6.6 requires _HibernateDialect6_ branch `hib-6.6`
 * Run `mvn -Dgpg.skip install` - see https://github.com/nuodb/HibernateDialect6#readme[project README].
 * Check the version in the POM - it will be of the form `nuodb-hibernate.NN.x.x-hib6`
    * You will need to set `DIALECT_VERSION` to `NN.x.x-hib6` to match - see below.
@@ -76,9 +81,9 @@ If you do not have NuoDB installed locally, here are some options using Docker:
 
 * To use `docker compose`:
 ** clone http://github.com/nuodb/nuodb-compose and (per the README):
-** `cd nuodb` and `cp env_default` to `.env`.
+** `cd nuodb` and copy `env_default` to `.env`.
 ** Edit `.env` and set `DB_NAME`, `DB_USER` and `DB_PASSWORD` to `hibernate_orm_test`.
-Also (last line) set `EXTERNAL_ADDRESS=127.0.0.1`.
+** Also (last line) uncomment and set `EXTERNAL_ADDRESS=127.0.0.1`.
 ** Run: `docker compose -p hib -f monolith.yaml up -d`
 ** Run: `docker exec -it hib-monolith-1 nuocmd show domain`
 
@@ -92,11 +97,10 @@ To avoid this, use `SET` or `export` to set the environment variable `HIBERNATE_
 
 . Running the Tests
 
-* **WARNING:** You _must_ use the `--rerun-tasks` option after the first run (with either option), otherwise Gradle may not run any tests at all (it only runs tests it thinks have changed and typically we only change our JAR).
+* **WARNING:** You _must_ use the `--rerun-tasks` option after the first run, otherwise Gradle may not run any tests at all (it only runs tests it thinks have changed and typically we only change our JAR).
 Tests can take 20-40 minutes to run.
-+
-//* **OPTION 1:** Run the tests using a database Profile (_RECOMMENDED_):
-* Run the tests using a database _Profile_: 
+
+* Run the tests using a database _Profile_ (the `-Pdb` option): 
 ** This obeys the exclusions in `hibernate-core.gradle` so a `green-list` is no longer needed (or supported).
 
 ** Windows (using `gradlew.bat`):
@@ -114,43 +118,12 @@ gradlew --rerun-tasks -Pdb=nuodb clean hibernate-core:test
 DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-core:test
 ----
 
-** After running tests:
-//*** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V6.0.2)
-*** _11356 tests completed, 0 failed, 1137 skipped_ (NuoDB V7.0.0)
+* After running tests:
+//** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V6.0.2)
+** _11356 tests completed, 0 failed, 1137 skipped_ (NuoDB V7.0.0)
 
-* The view the results report, open link:hibernate-core/target/reports/tests/test/index.html[].
-
-// * **OPTION 2:** Run the matrix test-suite using NuoDB as the database (_THE OLD WAY_):
-
-// ** This option does not respect the test exclusions in the `hibernate-core.gradle` file, so many tests fail.
-// However it runs fewer tests because it only runs those that exercise the dialect rather than Hibernate internals.
-
-// ** Windows (using `gradlew.bat`):
-// +
-// [source%autofit,sh,subs="verbatim,attributes"]
-// ----
-// set DIALECT_VERSION={jarversion}
-// gradlew --rerun-tasks clean hibernate-core:matrix_nuodb
-// ----
-
-// ** MacOS/Linux
-// +
-// [source%autofit,sh,subs="verbatim,attributes"]
-// ----
-// DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks clean hibernate-core:matrix_nuodb
-// ----
-
-// ** Expected final output is something like:
-// +
-// ```sh
-// 6018 tests completed, 79 failed, 1522 skipped
-// ```
-
-// * The view the results report, open link:hibernate-core/target/matrix/nuodb/reports/index.html[].
-
-[start=12]
-. Full details of all failing and ignored tests can be found at `hibernate-core/target/matrix/nuodb/reports/index.html`.
-** This directory is not fully populated until the test-run has finished and will be deleted by the next test run (take a copy if necessary).
+. Full details of all failing and ignored tests can be found at link:hibernate-core/target/reports/tests/test/index.html[].
+** This directory is not populated until _after_ the test-run has finished and will be deleted by the next test run (take a copy if necessary).
 
 . To run individual tests, use `--tests <pattern>` on the command line.
 * Examples (note the use of quotes when using wildcards):
@@ -322,13 +295,13 @@ This sub-project runs its own tests and `hibernate-core` is dependent on it.
 
 . Modified `hibernate-core/hibernate-core.gradle`:
 * To look in the local maven repository for our dialect.
-* To filter (excludes) tests that we know do not run.
+* To filter (exclude) tests that we know do not run.
 Mostly this is due to generating syntax or using features NuoDB SQL does not support.
 * You can annotate a class with `@SkipTest` to skip it for a given dialect, but this would involve changing far too many classes.
 
-. Copied `BaseUnitTestCase.java` from the hibernate-testing project
+. Copied `BaseUnitTestCase.java` from the `hibernate-testing` project.
 * Modified the test timeout rule, reducing it from 30 to 3 mins (otherwise the tests take ages to run when timeout tests are failing).
-* It's in `hibernate-core/src/test/java/org/hibernate/testing/junit4` to 
+* It's in `hibernate-core/src/test/java/org/hibernate/testing/junit4`.
 
 . Modified classes that use `Containing`, `String` or `Ver` as class or data-member names (they are reserved words in NuoDB).
 * To find them, run
@@ -337,10 +310,10 @@ Mostly this is due to generating syntax or using features NuoDB SQL does not sup
    grep -iRl "// NuoDB" hibernate-core/src/test/java/org/hibernate
 ```
 
-* If you need to change any other files, please mark the change like this:
+* If you need to change any other files, please mark the change like this so it can be found using `grep`:
 +
 ```java
 // NUODB: START ...
 ...
-// NUODBL END
-````
+// NUODB: END
+```

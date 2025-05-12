@@ -111,7 +111,7 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 
 	private void queryContaining(Session session, Integer id, String data) {
 		Query<Containing> query = session.createQuery(
-				// NUODB: 2025-04-12 CONTAINING reserved word
+				// NUODB: 2025-05-08 CONTAINING reserved word
 				"select c from containingEntity c where c.embed.contained.data = :data",
 				Containing.class
 		);
