@@ -119,8 +119,8 @@ DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-
 ----
 
 * After running tests:
-//** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V6.0.2)
-** _11356 tests completed, 0 failed, 1137 skipped_ (NuoDB V7.0.0)
+** _11356 tests completed, 0 failed, 1137 skipped_ (NuoDB V6.0.2)
+** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V7.0.0)
 
 . Full details of all failing and ignored tests can be found at link:hibernate-core/target/reports/tests/test/index.html[].
 ** This directory is not populated until _after_ the test-run has finished and will be deleted by the next test run (take a copy if necessary).
