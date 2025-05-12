@@ -1,4 +1,4 @@
-= Hibernate ORM
+= Hibernate ORM 6.6
 
 NOTE: This is a fork of the `hibernate-orm` project and we use it to test NuoDB's Hibernate Dialects.
 For more information see xref:README-NUODB.adoc[].

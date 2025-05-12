@@ -46,8 +46,8 @@ public class StringMappingTests {
 		final EntityPersister entityDescriptor = mappingMetamodel.findEntityDescriptor(EntityOfStrings.class);
 
 		{
-			// NUODB 2025-04-24 STRING is a data type
-			final BasicAttributeMapping attribute = (BasicAttributeMapping) entityDescriptor.findAttributeMapping("stringx");
+			// NUODB 2025-04-24 STRING is a data type (string -> aString)
+			final BasicAttributeMapping attribute = (BasicAttributeMapping) entityDescriptor.findAttributeMapping("aString");
 			assertThat( attribute.getJavaType().getJavaTypeClass(), equalTo( String.class));
 
 			final JdbcMapping jdbcMapping = attribute.getJdbcMapping();
@@ -87,7 +87,7 @@ public class StringMappingTests {
 
 		//tag::basic-string-example[]
 		// will be mapped using VARCHAR
-		String stringx;  // NUODB 2025-04-24 STRING is a data type
+		String aString;  // NUODB 2025-04-24 STRING is a data type
 
 		// will be mapped using CLOB
 		@Lob
@@ -99,7 +99,7 @@ public class StringMappingTests {
 
 		public EntityOfStrings(Integer id, String string, String clobString) {
 			this.id = id;
-			this.stringx = string;
+			this.aString = string; // NUODB: Renamed
 			this.clobString = clobString;
 		}
 	}

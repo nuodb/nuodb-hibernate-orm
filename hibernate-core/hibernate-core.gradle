@@ -38,29 +38,6 @@ test {
         // Failing tests that need fixing?
         // ---------------------------------------------------------------------
 
-        // These work with NuoDB 7 - need to retest NuoDB 6.
-    	// includeTestsMatching 'InsertOrderingWithSecondaryTable.testInheritanceWithSecondaryTable'
-		// includeTestsMatching 'JpaCrossJoinTests.testCrossJoin'
-    	// includeTestsMatching 'BulkManipulationTest.testInsertWithManyToOne'
-        // includeTestsMatching 'BulkManipulationTest.testInsertWithSelectListUsingJoins'
-
-		// includeTestsMatching 'JoinedInheritanceWithOneToManyTest.test'
-		// includeTestsMatching 'JoinedSubclassTest.testJoinedSubclass'
-		// includeTestsMatching 'JpaCrossJoinBaselineTests.testCrossJoin'
-		// includeTestsMatching 'LazyOneToOneRemoveFlushAccessTest.initializationError'
-		// includeTestsMatching 'LazyOneToOneRemoveFlushAccessTest.initializationError'
-		// includeTestsMatching 'LockTest.testContendedPessimisticLock'
-		// includeTestsMatching 'MappedSuperclassWithGenericsTest.initializationError'
-
-		// includeTestsMatching 'OneToOneOwnerByContainedEagerCyclesTest.initializationError'
-		// includeTestsMatching 'OptimisticAndPessimisticLockTest'
-		// includeTestsMatching 'OptimisticLockTest.test'
-		// includeTestsMatching 'PolymorphicQueriesWithJoinTest.testSelectWithWhereClause'
-		// includeTestsMatching 'QueryTimeOutTest.testCreateQuerySetTimeout'
-		// includeTestsMatching 'QueryTimeOutTest.testCreateQuerySetTimeoutHint'
-		// includeTestsMatching 'RepeatableReadTest.testStaleVersionedInstanceFoundOnLock'
-		// includeTestsMatching 'ResultTransformerTest.testResultTransformerIsAppliedToScrollableResults'
-
         // Undefined reference to DESCRIPTION
         excludeTestsMatching 'org.hibernate.orm.test.hql.BulkManipulationTest'
 
@@ -76,54 +53,11 @@ test {
         excludeTestsMatching 'org.hibernate.orm.test.query.SubQueryInFrom*'  // Predicate 1 is not a boolean operation
 
         excludeTestsMatching 'FetchClausePaginationTest.testFetchWithTies'
+
         excludeTestsMatching 'WindowFunctionTest.testFrame'
         excludeTestsMatching 'WindowFunctionTest.testRowNumberWithoutOrder'
-
-		//includeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
-		//includeTestsMatching 'WindowFunctionTest.testRank'
-
-        // Sub-select alias with parameters "(SELECT ...) alias(a, b)" not supported: FIXED
-		// includeTestsMatching 'CountQueryTests.testDistinctDynamicInstantiation'
-		// includeTestsMatching 'CountQueryTests.testForHHH18850'
-		// includeTestsMatching 'CountQueryTests.testJoinedEntityPath'
-		// includeTestsMatching 'CountQueryTests.testUnionQuery'
-   	    // includeTestsMatching 'CountTest.testCount'
-		// includeTestsMatching 'CteTests.testBasic'
-		// includeTestsMatching 'CteTests.testBasicJoined'
-		// includeTestsMatching 'CteTests.testMaterialized'
-		// includeTestsMatching 'CteTests.testNested'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryFetch'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffset'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testMainQueryOffsetAndFetch'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstAndMaxResults'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetFirstResult'
-		// includeTestsMatching 'CriteriaCteOffsetFetchTest.testSetMaxResults'
-		// includeTestsMatching 'CriteriaCteUnionTest.testSimpleCte'
-		// includeTestsMatching 'CriteriaCteUnionTest.testUnionCte'
-		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupBy'
-		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderBy'
-		// includeTestsMatching 'CriteriaMultiselectGroupByAndOrderByTest.testSubqueryGroupByAndOrderByAndHaving'
-		// includeTestsMatching 'ExpressionsTest.testSumWithSubqueryPath'
-		// includeTestsMatching 'FunctionsWithAnonymousTupleTest'
-		// includeTestsMatching 'HQLTest.test_hql_cte_materialized_example'
-        // includeTestsMatching 'HQLTest.test_hql_derived_root_example' 
-		// includeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testSimpleInSubqueryPredicate'
-		// includeTestsMatching 'InSubqueryPredicateAnonymousTupleTest.testTupleInSubqueryPredicate'
-		// includeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries'
-		// includeTestsMatching 'NestedSubqueryTest.testNestedHqlSubQueries2'
-		// includeTestsMatching 'OrderByExpressionNotInSelectTest.testSubquery'
-		// includeTestsMatching 'SubqueryTests.testNoFromClauseInSubquery'
-		// includeTestsMatching 'UnionOfPartitionResultsTest.testSubquery'
-		// includeTestsMatching 'UnionOfPartitionResultsTest.testSubqueryWithUnion'
-		// includeTestsMatching 'UnionOfPartitionResultsTest.testUnionOfPartitionResults'
-
-        // JOIN in UPDATE gets lost: FIXED
-		// includeTestsMatching 'IsNullAndMappedByTest.testHqlUpdate'
-        // includeTestsMatching 'IsNullAndNotFoundTest.testHqlUpdate'
-		// includeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdate'
-		// includeTestsMatching 'MutationQueriesAndNotFoundActionTest.testUpdateWithImplicitJoin'
-		// includeTestsMatching 'UpdateJoinTests.testUpdateWithJoin'
-		// includeTestsMatching 'UpdateJoinTests.testUpdateWithJoinCriteria'
+		excludeTestsMatching 'WindowFunctionTest.testOrderByAndAlias'
+		excludeTestsMatching 'WindowFunctionTest.testRank'
 
         // WARNING: Failing tests from this class leak connections and exhaust the pool, so all subsequent tests fail
         excludeTestsMatching 'org.hibernate.orm.test.hql.ASTParserLoadingTest.testEJBQLFunctions' // Cannot compare INTEGER to OBJECT?
@@ -139,8 +73,6 @@ test {
 
         // includeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testAggregateIndicesElementsWithPath'
         // includeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests.testColumnFunction'
-    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithFollowOn'
-    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithoutFollowOn'
 
         // Tests explicity look for CROSS JOIN in SQL, but work otherwise
 		excludeTestsMatching 'JpaCrossJoinTests.test2Roots'
@@ -234,10 +166,11 @@ test {
             excludeTestsMatching 'EntityJoinWithJoinedInheritanceTest.testFullJoin'
             excludeTestsMatching 'EntityJoinWithSingleTableInheritanceTest.testFullJoin'
             excludeTestsMatching 'EntityJoinWithTablePerClassInheritanceTest.testFullJoin'
+            excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullJoin'
             excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullJoinWithIdDereference'
             excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullNormalJoin'
             excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest.testJoinOrderWithFullNormalJoinWithIdDereference'
-
+            excludeTestsMatching 'org.hibernate.orm.test.mapping.inheritance.joined.JoinedSubclassTest.testJoinedSubclass'
             excludeTestsMatching 'org.hibernate.orm.test.inheritance.join.AttributeJoinWith*.testFullJoin'
             excludeTestsMatching 'org.hibernate.orm.test.query.RightJoinNullnessPredicateQueryTest.testDereferenceIsNull'
             excludeTestsMatching 'org.hibernate.orm.test.query.RightJoinNullnessPredicateQueryTest.testFullJoinIsNull'
@@ -249,7 +182,7 @@ test {
             excludeTestsMatching 'org.hibernate.orm.test.hql.HQLTest.test_var_function_example'
         }
 
-        // sign() function in @Formaula annotation is used as-is - the registered emulation is ignored
+        // sign() function in @Formula annotation is used as-is - the registered emulation is ignored
         excludeTestsMatching 'FormulaWithPartitionByTest'
 
         // TIMESTAMP precision is always 6 (MICROSECONDS)
@@ -302,6 +235,8 @@ test {
 
         // NuoDB does not take read locks
         excludeTestsMatching 'LockTest.testUpdateWithPessimisticReadLockSkipLocked'  
+    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithFollowOn'
+    	excludeTestsMatching 'FollowOnLockingTest.testQueryLockingWithoutFollowOn'
 
         // Functions or behaviours NuoDB doesn't support
         excludeTestsMatching 'NamedQueryCommentTest' // our query hints go after select/update not before

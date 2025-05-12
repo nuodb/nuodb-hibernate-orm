@@ -49,6 +49,7 @@ public class OrderByEmbeddableToOneTest extends BaseCoreFunctionalTestCase {
 		} );
 
 		inTransaction( session -> {
+			// NUODB: 2025-05-08 CONTAINING reserved word
 			Query<Containing> query = session.createQuery( "select c from containingEntity c order by c.id asc", Containing.class );
 
 			List<Containing> resultList = query.getResultList();
