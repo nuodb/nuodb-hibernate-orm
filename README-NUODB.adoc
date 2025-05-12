@@ -9,7 +9,7 @@ image::https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.p
 
 This is a fork of Hibernate ORM (http://github.com/hibernate/hibernate-orm).
 We have modified branches 6.1, 6.2 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
-The tests of interest are the profile tests in hibernate-core sib-project (which allow testing against multiple databases).
+The tests of interest are the profile tests in hibernate-core sub-project (which allow testing against multiple databases).
 Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
 Hence we use _profiles_.
 
@@ -17,7 +17,7 @@ IMPORTANT: If the NuoDB Hibernate JAR version changes, edit this README and chan
 
 == Running Tests
 
-To run the matrix tests for NuoDB:
+To run the tests for NuoDB:
 
 . Checkout branch 6.1, 6.2 or 6.6 as needed.
 
@@ -119,8 +119,8 @@ DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-
 ----
 
 * After running tests:
-//*** _14838 tests completed, 0 failed, 2297 skipped_ (NuoDB V6.0.2)
-*** _8884 tests completed, 0 failed, 821 skipped_ (NuoDB V7.0.0)
+** _8867 tests completed, 0 failed, 820 skipped_ (NuoDB V6.0.2)
+** _8884 tests completed, 0 failed, 821 skipped_ (NuoDB V7.0.0)
 
 . Full details of all failing and ignored tests can be found at link:hibernate-core/target/reports/tests/test/index.html[].
 ** This directory is not populated until _after_ the test-run has finished and will be deleted by the next test run (take a copy if necessary).
@@ -316,4 +316,4 @@ Mostly this is due to generating syntax or using features NuoDB SQL does not sup
 // NUODB: START ...
 ...
 // NUODB: END
-````
+```

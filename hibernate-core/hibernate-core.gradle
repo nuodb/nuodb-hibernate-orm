@@ -35,8 +35,6 @@ repositories {
 // --------------------------------------------------------------------- //
 test {
     filter {
-        //includeTestsMatching 'org.hibernate.orm.test.polymorphic.PolymorphicQueriesWithJoinTest'
-        //includeTestsMatching 'org.hibernate.orm.test.query.hql.FunctionTests'
 
         // ---------------------------------------------------------------------
         // Failing tests that need fixing?
@@ -126,6 +124,13 @@ test {
         // --------------------------------------------
         // Tests to skip due to known NuoDB limitations
         // --------------------------------------------
+
+        // Require NuoDB V7
+        if (nuodbDatabaseVersion < 7) {
+            excludeTestsMatching 'org.hibernate.orm.test.join.OuterJoinTest'
+            excludeTestsMatching 'org.hibernate.orm.test.mapping.inheritance.joined.JoinedSubclassTest.testJoinedSubclass'
+            excludeTestsMatching 'org.hibernate.orm.test.jpa.ql.TreatKeywordTest.testFilteringJoinedSubclasses'
+        }
 
         // Functions or behaviours NuoDB doesn't support
         excludeTestsMatching 'NamedQueryCommentTest' // our query hints go after select/update not before
