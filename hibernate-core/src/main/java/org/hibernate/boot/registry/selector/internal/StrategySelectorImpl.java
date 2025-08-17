@@ -157,13 +157,10 @@ public class StrategySelectorImpl implements StrategySelector {
 			return strategy.cast( strategyReference );
 		}
 
-		final Class<? extends T> implementationClass;
-		if ( strategyReference instanceof Class ) {
-			implementationClass = (Class<T>) strategyReference;
-		}
-		else {
-			implementationClass = selectStrategyImplementor( strategy, strategyReference.toString() );
-		}
+		final Class<? extends T> implementationClass =
+				strategyReference instanceof Class
+						? (Class<? extends T>) strategyReference
+						: selectStrategyImplementor( strategy, strategyReference.toString() );
 
 		try {
 			return creator.create( implementationClass );
@@ -199,37 +196,27 @@ public class StrategySelectorImpl implements StrategySelector {
 	}
 
 	private <T> void contributeImplementation(Class<T> strategy, Class<? extends T> implementation, String... names) {
-		final Map<String,Class<?>> namedStrategyImplementorMap = namedStrategyImplementorByStrategyMap.computeIfAbsent(
-				strategy,
-				aClass -> new ConcurrentHashMap<>()
-		);
+		final var namedStrategyImplementorMap =
+				namedStrategyImplementorByStrategyMap.computeIfAbsent( strategy, clazz -> new ConcurrentHashMap<>() );
 
-		for ( int i = 0; i < names.length; i++ ) {
-			final String name = names[i];
-
+		for ( String name : names ) {
 			final Class<?> old = namedStrategyImplementorMap.put( name, implementation );
-			if ( old == null ) {
-				if ( log.isTraceEnabled() ) {
-					log.trace(
-							String.format(
-									"Registering named strategy selector [%s] : [%s] -> [%s]",
-									strategy.getName(),
-									name,
-									implementation.getName()
-							)
+			if ( log.isTraceEnabled() ) {
+				if ( old == null ) {
+					log.tracef(
+							"Strategy selector for %s: '%s' -> %s",
+							strategy.getSimpleName(),
+							name,
+							implementation.getName()
 					);
 				}
-			}
-			else {
-				if ( log.isDebugEnabled() ) {
-					log.debug(
-							String.format(
-									"Registering named strategy selector [%s] : [%s] -> [%s] (replacing [%s])",
-									strategy.getName(),
-									name,
-									implementation.getName(),
-									old.getName()
-							)
+				else {
+					log.tracef(
+							"Strategy selector for %s: '%s' -> %s (replacing %s)",
+							strategy.getSimpleName(),
+							name,
+							implementation.getName(),
+							old.getName()
 					);
 				}
 			}
@@ -239,7 +226,7 @@ public class StrategySelectorImpl implements StrategySelector {
 	private <T> void removeImplementation(Class<T> strategy, Class<? extends T> implementation) {
 		final Map<String,Class<?>> namedStrategyImplementorMap = namedStrategyImplementorByStrategyMap.get( strategy );
 		if ( namedStrategyImplementorMap == null ) {
-			log.debug( "Named strategy map did not exist on call to un-register" );
+			log.debug( "Named strategy map did not exist on call to unregister" );
 			return;
 		}
 

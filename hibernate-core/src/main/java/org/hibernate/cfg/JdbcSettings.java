@@ -246,12 +246,12 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * automatically:
 	 * <ul>
 	 * <li>if {@link #JAKARTA_JTA_DATASOURCE} or {@link #JAKARTA_NON_JTA_DATASOURCE}
-	 *     is set, {@linkplain org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl
+	 *     is set, {@linkplain org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider
 	 *     a datasource-based implementation} is used;
 	 * <li>otherwise, a {@code ConnectionProvider} is loaded automatically as a
 	 *     {@linkplain java.util.ServiceLoader Java service};
 	 * <li>but if no service is found, or if more than one service is available,
-	 *     {@linkplain org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl
+	 *     {@linkplain org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProvider
 	 *     a default implementation} is used as a fallback.
 	 * </ul>
 	 * <p>
@@ -266,7 +266,7 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * Specifies the maximum number of inactive connections for any
 	 * {@linkplain ConnectionProvider connection pool} which respects this
 	 * setting, including every built-in implementation except for
-	 * {@link org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl}.
+	 * {@link org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider}.
 	 * <p>
 	 * The default pool size depends on the connection provider.
 	 */
@@ -276,7 +276,7 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * Specifies the JDBC transaction isolation level for connections obtained
 	 * from any {@link ConnectionProvider} implementation which respects this
 	 * setting, including every built-in implementation except for
-	 * {@link org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl}.
+	 * {@link org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider}.
 	 * <p>
 	 * Possible values are enumerated by {@link java.sql.Connection}:
 	 * {@code READ_UNCOMMITTED}, {@code READ_COMMITTED},
@@ -293,7 +293,7 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * Controls the autocommit mode of JDBC connections obtained from any
 	 * {@link ConnectionProvider} implementation which respects this setting,
 	 * including every built-in implementation except for
-	 * {@link org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl}.
+	 * {@link org.hibernate.engine.jdbc.connections.internal.DataSourceConnectionProvider}.
 	 *
 	 * @see java.sql.Connection#setAutoCommit(boolean)
 	 *
@@ -329,7 +329,7 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * append {@code foo=bar} to the JDBC connection URL.
 	 *
 	 * @deprecated This setting is only supported by {@code C3P0ConnectionProvider}
-	 * and {@link org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl}.
+	 * and {@link org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProvider}.
 	 */
 	@Deprecated(since="7")
 	String CONNECTION_PREFIX = "hibernate.connection";
@@ -452,6 +452,9 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	/**
 	 * When enabled, specifies that JDBC statement warnings should be logged.
 	 * <p>
+	 * Logging of JDBC warnings may also be controlled via the log category
+	 * {@value org.hibernate.engine.jdbc.spi.SQLExceptionLogging#WARN_NAME}.
+	 * <p>
 	 * The default is determined by
 	 * {@link org.hibernate.dialect.Dialect#isJdbcLogWarningsEnabledByDefault()}.
 	 *
@@ -460,6 +463,19 @@ public interface JdbcSettings extends C3p0Settings, AgroalSettings, HikariCPSett
 	 * @since 5.1
 	 */
 	String LOG_JDBC_WARNINGS = "hibernate.jdbc.log.warnings";
+
+	/**
+	 * When enabled, specifies that JDBC errors should be logged before being rethrown.
+	 * <p>
+	 * Logging of JDBC errors may also be controlled via the log category
+	 * {@value org.hibernate.engine.jdbc.spi.SQLExceptionLogging#ERROR_NAME}.
+	 *
+	 * @settingDefault {@code true}
+	 *
+	 * @since 7
+	 */
+	@Incubating // this was added for symmetry with LOG_JDBC_WARNINGS
+	String LOG_JDBC_ERRORS = "hibernate.jdbc.log.errors";
 
 	/**
 	 * Specifies the {@linkplain java.util.TimeZone time zone} to use in the JDBC driver,

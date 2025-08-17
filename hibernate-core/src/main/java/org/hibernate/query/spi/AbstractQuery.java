@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,18 +19,20 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.Parameter;
 import jakarta.persistence.PessimisticLockScope;
 import jakarta.persistence.TemporalType;
-
+import jakarta.persistence.Timeout;
+import jakarta.persistence.metamodel.Type;
 import org.hibernate.CacheMode;
 import org.hibernate.FlushMode;
+import org.hibernate.Internal;
 import org.hibernate.query.QueryFlushMode;
 import org.hibernate.HibernateException;
-import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
+import org.hibernate.Locking;
+import org.hibernate.Timeouts;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.graph.GraphSemantic;
 import org.hibernate.jpa.AvailableHints;
 import org.hibernate.jpa.internal.util.LockModeTypeHelper;
-import org.hibernate.query.BindableType;
 import org.hibernate.query.IllegalQueryOperationException;
 import org.hibernate.query.KeyedPage;
 import org.hibernate.query.KeyedResultList;
@@ -40,14 +41,12 @@ import org.hibernate.query.ResultListTransformer;
 import org.hibernate.query.TupleTransformer;
 import org.hibernate.query.named.NamedQueryMemento;
 
-import static org.hibernate.LockOptions.WAIT_FOREVER;
 import static org.hibernate.jpa.HibernateHints.HINT_CACHEABLE;
 import static org.hibernate.jpa.HibernateHints.HINT_CACHE_MODE;
 import static org.hibernate.jpa.HibernateHints.HINT_CACHE_REGION;
 import static org.hibernate.jpa.HibernateHints.HINT_COMMENT;
 import static org.hibernate.jpa.HibernateHints.HINT_FETCH_SIZE;
 import static org.hibernate.jpa.HibernateHints.HINT_FLUSH_MODE;
-import static org.hibernate.jpa.HibernateHints.HINT_NATIVE_LOCK_MODE;
 import static org.hibernate.jpa.HibernateHints.HINT_READ_ONLY;
 import static org.hibernate.jpa.HibernateHints.HINT_TIMEOUT;
 import static org.hibernate.jpa.LegacySpecHints.HINT_JAVAEE_CACHE_RETRIEVE_MODE;
@@ -62,8 +61,15 @@ import static org.hibernate.jpa.SpecHints.HINT_SPEC_LOCK_TIMEOUT;
 import static org.hibernate.jpa.SpecHints.HINT_SPEC_QUERY_TIMEOUT;
 
 /**
+ * Base implementation of {@link org.hibernate.query.Query}.
+ *
+ * @apiNote This class is now considered internal implementation
+ * and will move to an internal package in a future version.
+ * Application programs should never depend directly on this class.
+ *
  * @author Steve Ebersole
  */
+@Internal
 public abstract class AbstractQuery<R>
 		extends AbstractSelectionQuery<R>
 		implements QueryImplementor<R> {
@@ -257,9 +263,15 @@ public abstract class AbstractQuery<R>
 		return this;
 	}
 
-	@Override
+	@Override @Deprecated
 	public LockOptions getLockOptions() {
 		return getQueryOptions().getLockOptions();
+	}
+
+	@Override @Deprecated
+	public QueryImplementor<R> setLockOptions(LockOptions lockOptions) {
+		getQueryOptions().getLockOptions().overlay( lockOptions );
+		return this;
 	}
 
 	@Override
@@ -269,21 +281,30 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public QueryImplementor<R> setLockOptions(LockOptions lockOptions) {
-		getQueryOptions().getLockOptions().overlay( lockOptions );
-		return this;
-	}
-
-	@Override
-	public QueryImplementor<R> setLockMode(String alias, LockMode lockMode) {
-		super.setLockMode( alias, lockMode );
-		return this;
-	}
-
-	@Override
 	public QueryImplementor<R> setLockMode(LockModeType lockModeType) {
 		getSession().checkOpen();
 		super.setHibernateLockMode( LockModeTypeHelper.getLockMode( lockModeType ) );
+		return this;
+	}
+
+	@Override
+	public QueryImplementor<R> setLockScope(Locking.Scope lockScope) {
+		getSession().checkOpen();
+		super.setLockScope( lockScope );
+		return this;
+	}
+
+	@Override
+	public QueryImplementor<R> setLockScope(PessimisticLockScope lockScope) {
+		getSession().checkOpen();
+		super.setLockScope( lockScope );
+		return this;
+	}
+
+	@Override
+	public QueryImplementor<R> setTimeout(Timeout timeout) {
+		getSession().checkOpen();
+		super.setTimeout( timeout );
 		return this;
 	}
 
@@ -322,7 +343,7 @@ public abstract class AbstractQuery<R>
 			hints.put( HINT_JAVAEE_QUERY_TIMEOUT, getQueryOptions().getTimeout() * 1000 );
 		}
 
-		if ( getLockOptions().getTimeOut() != WAIT_FOREVER ) {
+		if ( getLockOptions().getTimeout().milliseconds() != Timeouts.WAIT_FOREVER_MILLI ) {
 			hints.put( HINT_SPEC_LOCK_TIMEOUT, getLockOptions().getTimeOut() );
 			hints.put( HINT_JAVAEE_LOCK_TIMEOUT, getLockOptions().getTimeOut() );
 		}
@@ -330,15 +351,6 @@ public abstract class AbstractQuery<R>
 		if ( getLockOptions().getLockScope() == PessimisticLockScope.EXTENDED ) {
 			hints.put( HINT_SPEC_LOCK_SCOPE, getLockOptions().getLockScope() );
 			hints.put( HINT_JAVAEE_LOCK_SCOPE, getLockOptions().getLockScope() );
-		}
-
-		if ( getLockOptions().hasAliasSpecificLockModes() ) {
-			for ( Map.Entry<String, LockMode> entry : getLockOptions().getAliasSpecificLocks() ) {
-				hints.put(
-						HINT_NATIVE_LOCK_MODE + '.' + entry.getKey(),
-						entry.getValue().name()
-				);
-			}
 		}
 
 		putIfNotNull( hints, HINT_COMMENT, getComment() );
@@ -390,7 +402,7 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public <P> QueryImplementor<R> setParameter(String name, P value, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameter(String name, P value, Type<P> type) {
 		super.setParameter( name, value, type );
 		return this;
 	}
@@ -414,7 +426,7 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public <P> QueryImplementor<R> setParameter(int position, P value, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameter(int position, P value, Type<P> type) {
 		super.setParameter( position, value, type );
 		return this;
 	}
@@ -438,7 +450,7 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public <P> QueryImplementor<R> setParameter(QueryParameter<P> parameter, P value, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameter(QueryParameter<P> parameter, P value, Type<P> type) {
 		super.setParameter( parameter, value, type );
 		return this;
 	}
@@ -466,7 +478,7 @@ public abstract class AbstractQuery<R>
 
 
 	@Override
-	public <P> QueryImplementor<R> setParameterList(String name, Collection<? extends P> values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(String name, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( name, values, type );
 		return this;
 	}
@@ -483,7 +495,7 @@ public abstract class AbstractQuery<R>
 		return this;
 	}
 
-	public <P> QueryImplementor<R> setParameterList(String name, P[] values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(String name, P[] values, Type<P> type) {
 		super.setParameterList( name, values, type );
 		return this;
 	}
@@ -501,7 +513,7 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public <P> QueryImplementor<R> setParameterList(int position, Collection<? extends P> values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(int position, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( position, values, type );
 		return this;
 	}
@@ -518,7 +530,7 @@ public abstract class AbstractQuery<R>
 		return this;
 	}
 
-	public <P> QueryImplementor<R> setParameterList(int position, P[] values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(int position, P[] values, Type<P> type) {
 		super.setParameterList( position, values, type );
 		return this;
 	}
@@ -536,7 +548,7 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public <P> QueryImplementor<R> setParameterList(QueryParameter<P> parameter, Collection<? extends P> values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(QueryParameter<P> parameter, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( parameter, values, type );
 		return this;
 	}
@@ -555,7 +567,7 @@ public abstract class AbstractQuery<R>
 
 
 	@Override
-	public <P> QueryImplementor<R> setParameterList(QueryParameter<P> parameter, P[] values, BindableType<P> type) {
+	public <P> QueryImplementor<R> setParameterList(QueryParameter<P> parameter, P[] values, Type<P> type) {
 		super.setParameterList( parameter, values, type );
 		return this;
 	}
@@ -619,8 +631,9 @@ public abstract class AbstractQuery<R>
 
 	@Override
 	public int executeUpdate() throws HibernateException {
-		getSession().checkTransactionNeededForUpdateOperation( "Executing an update/delete query" );
-		final HashSet<String> fetchProfiles = beforeQueryHandlingFetchProfiles();
+		//TODO: refactor copy/paste of QuerySqmImpl.executeUpdate()
+		getSession().checkTransactionNeededForUpdateOperation( "No active transaction for update or delete query" );
+		final var fetchProfiles = beforeQueryHandlingFetchProfiles();
 		boolean success = false;
 		try {
 			final int result = doExecuteUpdate();
@@ -631,7 +644,7 @@ public abstract class AbstractQuery<R>
 			throw new IllegalStateException( e );
 		}
 		catch (HibernateException e) {
-			throw getSession().getExceptionConverter().convert( e );
+			throw getExceptionConverter().convert( e );
 		}
 		finally {
 			afterQueryHandlingFetchProfiles( success, fetchProfiles );

@@ -138,7 +138,6 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 
 	public static AnnotatedJoinColumns buildJoinColumns(
 			JoinColumn[] joinColumns,
-//			Comment comment,
 			String mappedBy,
 			Map<String, Join> joins,
 			PropertyHolder propertyHolder,
@@ -146,7 +145,6 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 			MetadataBuildingContext buildingContext) {
 		return buildJoinColumnsWithDefaultColumnSuffix(
 				joinColumns,
-//				comment,
 				mappedBy,
 				joins,
 				propertyHolder,
@@ -158,7 +156,6 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 
 	public static AnnotatedJoinColumns buildJoinColumnsWithDefaultColumnSuffix(
 			JoinColumn[] joinColumns,
-//			Comment comment,
 			String mappedBy,
 			Map<String, Join> joins,
 			PropertyHolder propertyHolder,
@@ -180,7 +177,6 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 		if ( isEmpty( actualColumns ) ) {
 			AnnotatedJoinColumn.buildJoinColumn(
 					null,
-//					comment,
 					mappedBy,
 					parent,
 					propertyHolder,
@@ -193,7 +189,6 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 			for ( JoinColumn actualColumn : actualColumns ) {
 				AnnotatedJoinColumn.buildJoinColumn(
 						actualColumn,
-//						comment,
 						mappedBy,
 						parent,
 						propertyHolder,
@@ -238,14 +233,9 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 		final PersistentClass persistentClass = getPropertyHolder().getPersistentClass();
 		final KeyValue identifier = persistentClass.getIdentifier();
 		try {
-			if ( identifier instanceof Component embeddedIdType ) {
-				// an @EmbeddedId
-				return embeddedIdType.getProperty( getMapsId() );
-			}
-			else {
-				// a simple id or an @IdClass
-				return persistentClass.getProperty( getMapsId() );
-			}
+			return identifier instanceof Component embeddedIdType
+					? embeddedIdType.getProperty( getMapsId() )   // an @EmbeddedId
+					: persistentClass.getProperty( getMapsId() );  // a simple id or an @IdClass
 		}
 		catch (MappingException me) {
 			throw new AnnotationException( "Identifier field '" + getMapsId()
@@ -260,10 +250,10 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 
 	@Override
 	public void addColumn(AnnotatedColumn child) {
-		if ( !( child instanceof AnnotatedJoinColumn ) ) {
+		if ( !( child instanceof AnnotatedJoinColumn joinColumn ) ) {
 			throw new AssertionFailure( "wrong sort of column" );
 		}
-		addColumn( (AnnotatedJoinColumn) child );
+		addColumn( joinColumn );
 	}
 
 	public void addColumn(AnnotatedJoinColumn child) {
@@ -431,7 +421,7 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 			ImplicitNamingStrategy implicitNamingStrategy,
 			InFlightMetadataCollector collector,
 			Database database) {
-		boolean isRefColumnQuoted = isQuoted( logicalReferencedColumn );
+		final boolean isRefColumnQuoted = isQuoted( logicalReferencedColumn );
 
 		if ( isMappedBySide() ) {
 			// NOTE: An @ElementCollection can't be mappedBy, but the client code
@@ -444,17 +434,10 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 		}
 		else if ( isOwnerSide() ) {
 			final String logicalTableName = collector.getLogicalTableName( referencedEntity.getTable() );
-			Identifier columnIdentifier = implicitNamingStrategy.determineJoinColumnName(
-					new OwnedImplicitJoinColumnNameSource(referencedEntity, logicalTableName, logicalReferencedColumn)
+			final Identifier columnIdentifier = implicitNamingStrategy.determineJoinColumnName(
+					new OwnedImplicitJoinColumnNameSource( referencedEntity, logicalTableName, logicalReferencedColumn )
 			);
-			// HHH-11826 magic. See AnnotatedColumn and the HHH-6005 comments
-			if ( columnIdentifier.getText().contains( "_{element}_" ) ) {
-				columnIdentifier = Identifier.toIdentifier(
-						columnIdentifier.getText().replace( "_{element}_", "_" ),
-						columnIdentifier.isQuoted()
-				);
-			}
-			return quoteIfNecessary( isRefColumnQuoted, logicalTableName, columnIdentifier );
+			return quoteIfNecessary( isRefColumnQuoted, logicalTableName, handleElement( columnIdentifier ) );
 		}
 		else {
 			final Identifier logicalTableName = database.toIdentifier(
@@ -483,10 +466,24 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 		}
 	}
 
+	private Identifier handleElement(Identifier columnIdentifier) {
+		// HHH-11826 magic. See AnnotatedColumn and the HHH-6005 comments
+		if ( columnIdentifier.getText().contains( "_{element}_" ) ) {
+			return Identifier.toIdentifier(
+					columnIdentifier.getText().replace( "_{element}_", "_" ),
+					columnIdentifier.isQuoted()
+			);
+		}
+		else {
+			return columnIdentifier;
+		}
+	}
+
 	private static Identifier quoteIfNecessary(
 			boolean isRefColumnQuoted, Identifier logicalTableName, Identifier columnIdentifier) {
-		return !columnIdentifier.isQuoted() && ( isRefColumnQuoted || logicalTableName.isQuoted() )
-				? Identifier.quote( columnIdentifier )
+		return !columnIdentifier.isQuoted()
+			&& ( isRefColumnQuoted || logicalTableName.isQuoted() )
+				? columnIdentifier.quoted()
 				: columnIdentifier;
 	}
 
@@ -494,7 +491,7 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 			boolean isRefColumnQuoted, String logicalTableName, Identifier columnIdentifier) {
 		//one element was quoted so we quote
 		return isRefColumnQuoted || isQuoted( logicalTableName )
-				? Identifier.quote( columnIdentifier )
+				? columnIdentifier.quoted()
 				: columnIdentifier;
 	}
 
@@ -596,8 +593,9 @@ public class AnnotatedJoinColumns extends AnnotatedColumns {
 				return null;
 			}
 
-			final Property mappedByProperty = collector.getEntityBinding( getMappedByEntityName() )
-					.getProperty( getMappedByPropertyName() );
+			final Property mappedByProperty =
+					collector.getEntityBinding( getMappedByEntityName() )
+							.getProperty( getMappedByPropertyName() );
 			final SimpleValue value = (SimpleValue) mappedByProperty.getValue();
 			if ( value.getSelectables().isEmpty() ) {
 				throw new AnnotationException(

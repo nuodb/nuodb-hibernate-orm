@@ -4,24 +4,15 @@
  */
 package org.hibernate.dialect;
 
-import java.sql.CallableStatement;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.time.temporal.ChronoField;
-import java.time.temporal.TemporalAccessor;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
-
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.hibernate.Length;
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.QueryTimeoutException;
+import org.hibernate.Timeouts;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.dialect.aggregate.AggregateSupport;
@@ -32,11 +23,15 @@ import org.hibernate.dialect.function.PostgreSQLTruncFunction;
 import org.hibernate.dialect.function.PostgreSQLTruncRoundFunction;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
 import org.hibernate.dialect.identity.PostgreSQLIdentityColumnSupport;
+import org.hibernate.dialect.lock.internal.PostgreSQLLockingSupport;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.OffsetFetchLimitHandler;
 import org.hibernate.dialect.sequence.PostgreSQLSequenceSupport;
 import org.hibernate.dialect.sequence.SequenceSupport;
 import org.hibernate.dialect.sql.ast.PostgreSQLSqlAstTranslator;
+import org.hibernate.dialect.temptable.StandardLocalTemporaryTableStrategy;
+import org.hibernate.dialect.temptable.TemporaryTableStrategy;
 import org.hibernate.dialect.type.PgJdbcHelper;
 import org.hibernate.dialect.type.PostgreSQLArrayJdbcTypeConstructor;
 import org.hibernate.dialect.type.PostgreSQLCastingInetJdbcType;
@@ -70,11 +65,11 @@ import org.hibernate.persister.entity.mutation.EntityMutationTarget;
 import org.hibernate.procedure.internal.PostgreSQLCallableStatementSupport;
 import org.hibernate.procedure.spi.CallableStatementSupport;
 import org.hibernate.query.SemanticException;
+import org.hibernate.query.common.FetchClauseType;
+import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.spi.QueryOptions;
 import org.hibernate.query.sqm.CastType;
-import org.hibernate.query.common.FetchClauseType;
 import org.hibernate.query.sqm.IntervalType;
-import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.mutation.internal.cte.CteInsertStrategy;
 import org.hibernate.query.sqm.mutation.internal.cte.CteMutationStrategy;
 import org.hibernate.query.sqm.mutation.spi.SqmMultiTableInsertStrategy;
@@ -90,7 +85,6 @@ import org.hibernate.sql.ast.tree.Statement;
 import org.hibernate.sql.exec.spi.JdbcOperation;
 import org.hibernate.sql.model.MutationOperation;
 import org.hibernate.sql.model.internal.OptionalTableUpdate;
-import org.hibernate.sql.model.jdbc.OptionalTableUpdateOperation;
 import org.hibernate.tool.schema.extract.spi.ColumnTypeInformation;
 import org.hibernate.tool.schema.internal.StandardTableExporter;
 import org.hibernate.tool.schema.spi.Exporter;
@@ -112,8 +106,17 @@ import org.hibernate.type.descriptor.sql.internal.Scale6IntervalSecondDdlType;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 import org.hibernate.type.spi.TypeConfiguration;
 
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.TemporalType;
+import java.sql.CallableStatement;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.TimeZone;
 
 import static java.lang.Integer.parseInt;
 import static org.hibernate.exception.spi.TemplatedViolatedConstraintNameExtractor.extractUsingTemplate;
@@ -179,15 +182,16 @@ public class PostgreSQLDialect extends Dialect {
 	};
 
 	protected final PostgreSQLDriverKind driverKind;
-	private final OptionalTableUpdateStrategy optionalTableUpdateStrategy;
 	private final ParameterMarkerStrategy parameterRenderer;
+	private final boolean supportsMerge;
 
 	public PostgreSQLDialect() {
 		this( MINIMUM_VERSION );
 	}
 
 	public PostgreSQLDialect(DialectResolutionInfo info) {
-		this( info.makeCopyOrDefault( MINIMUM_VERSION ), PostgreSQLDriverKind.determineKind( info ) );
+		this( info.makeCopyOrDefault( MINIMUM_VERSION ),
+				PostgreSQLDriverKind.determineKind( info ) );
 		registerKeywords( info );
 	}
 
@@ -197,18 +201,16 @@ public class PostgreSQLDialect extends Dialect {
 
 	public PostgreSQLDialect(DatabaseVersion version, PostgreSQLDriverKind driverKind) {
 		super( version );
-
 		this.driverKind = driverKind;
-		this.optionalTableUpdateStrategy = determineOptionalTableUpdateStrategy( version );
-		this.parameterRenderer = driverKind == PostgreSQLDriverKind.VERT_X
-				? NativeParameterMarkers.INSTANCE
-				: super.getNativeParameterMarkerStrategy();
+		parameterRenderer =
+				driverKind == PostgreSQLDriverKind.VERT_X
+						? NativeParameterMarkers.INSTANCE
+						: super.getNativeParameterMarkerStrategy();
+		supportsMerge = version.isSameOrAfter( DatabaseVersion.make( 15, 0 ) );
 	}
 
-	private static OptionalTableUpdateStrategy determineOptionalTableUpdateStrategy(DatabaseVersion version) {
-		return version.isSameOrAfter( DatabaseVersion.make( 15, 0 ) )
-				? PostgreSQLDialect::usingMerge
-				: PostgreSQLDialect::withoutMerge;
+	public PostgreSQLDriverKind getDriverKind() {
+		return driverKind;
 	}
 
 	@Override
@@ -550,9 +552,9 @@ public class PostgreSQLDialect extends Dialect {
 
 	@Override
 	public void initializeFunctionRegistry(FunctionContributions functionContributions) {
-		super.initializeFunctionRegistry(functionContributions);
+		super.initializeFunctionRegistry( functionContributions );
 
-		CommonFunctionFactory functionFactory = new CommonFunctionFactory(functionContributions);
+		final var functionFactory = new CommonFunctionFactory( functionContributions );
 
 		functionFactory.cot();
 		functionFactory.radians();
@@ -827,6 +829,11 @@ public class PostgreSQLDialect extends Dialect {
 	}
 
 	@Override
+	public boolean addPartitionKeyToPrimaryKey() {
+		return true;
+	}
+
+	@Override
 	public boolean supportsNonQueryWithCTE() {
 		return true;
 	}
@@ -863,22 +870,10 @@ public class PostgreSQLDialect extends Dialect {
 	@Override
 	public String getForUpdateString(String aliases, LockOptions lockOptions) {
 		// parent's implementation for (aliases, lockOptions) ignores aliases
-		if ( aliases.isEmpty() ) {
-			LockMode lockMode = lockOptions.getLockMode();
-			for ( Map.Entry<String, LockMode> entry : lockOptions.getAliasSpecificLocks() ) {
-				// seek the highest lock mode
-				if ( entry.getValue().greaterThan(lockMode) ) {
-					aliases = entry.getKey();
-				}
-			}
-		}
-		LockMode lockMode = lockOptions.getAliasSpecificLockMode( aliases );
-		if ( lockMode == null ) {
-			lockMode = lockOptions.getLockMode();
-		}
+		final LockMode lockMode = lockOptions.getLockMode();
 		return switch (lockMode) {
-			case PESSIMISTIC_READ -> getReadLockString( aliases, lockOptions.getTimeOut() );
-			case PESSIMISTIC_WRITE -> getWriteLockString( aliases, lockOptions.getTimeOut() );
+			case PESSIMISTIC_READ -> getReadLockString( aliases, lockOptions.getTimeout() );
+			case PESSIMISTIC_WRITE -> getWriteLockString( aliases, lockOptions.getTimeout() );
 			case UPGRADE_NOWAIT, PESSIMISTIC_FORCE_INCREMENT -> getForUpdateNowaitString( aliases );
 			case UPGRADE_SKIPLOCKED -> getForUpdateSkipLockedString( aliases );
 			default -> "";
@@ -903,11 +898,6 @@ public class PostgreSQLDialect extends Dialect {
 	@Override
 	public GenerationType getNativeValueGenerationStrategy() {
 		return GenerationType.SEQUENCE;
-	}
-
-	@Override
-	public boolean supportsOuterJoinForUpdate() {
-		return false;
 	}
 
 	@Override
@@ -984,15 +974,15 @@ public class PostgreSQLDialect extends Dialect {
 	}
 
 	@Override
-	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData dbMetaData)
+	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData metadata)
 			throws SQLException {
 
-		if ( dbMetaData == null ) {
+		if ( metadata == null ) {
 			builder.setUnquotedCaseStrategy( IdentifierCaseStrategy.LOWER );
 			builder.setQuotedCaseStrategy( IdentifierCaseStrategy.MIXED );
 		}
 
-		return super.buildIdentifierHelper( builder, dbMetaData );
+		return super.buildIdentifierHelper( builder, metadata );
 	}
 
 	@Override
@@ -1007,6 +997,11 @@ public class PostgreSQLDialect extends Dialect {
 			EntityMappingType rootEntityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
 		return new CteInsertStrategy( rootEntityDescriptor, runtimeModelCreationContext );
+	}
+
+	@Override
+	public TemporaryTableStrategy getLocalTemporaryTableStrategy() {
+		return StandardLocalTemporaryTableStrategy.INSTANCE;
 	}
 
 	@Override
@@ -1130,6 +1125,11 @@ public class PostgreSQLDialect extends Dialect {
 	@Override
 	public int getMaxIdentifierLength() {
 		return 63;
+	}
+
+	@Override
+	public boolean supportsUserDefinedTypes() {
+		return true;
 	}
 
 	@Override
@@ -1299,10 +1299,44 @@ public class PostgreSQLDialect extends Dialect {
 		}
 	}
 
+
+	@Override
+	public LockingSupport getLockingSupport() {
+		return PostgreSQLLockingSupport.LOCKING_SUPPORT;
+	}
+
+	private String withTimeout(String lockString, Timeout timeout) {
+		return switch (timeout.milliseconds()) {
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			default -> lockString;
+		};
+	}
+
+	@Override
+	public String getWriteLockString(Timeout timeout) {
+		return withTimeout( getForUpdateString(), timeout );
+	}
+
+	@Override
+	public String getWriteLockString(String aliases, Timeout timeout) {
+		return withTimeout( getForUpdateString( aliases ), timeout );
+	}
+
+	@Override
+	public String getReadLockString(Timeout timeout) {
+		return withTimeout(" for share", timeout );
+	}
+
+	@Override
+	public String getReadLockString(String aliases, Timeout timeout) {
+		return withTimeout(" for share of " + aliases, timeout );
+	}
+
 	private String withTimeout(String lockString, int timeout) {
 		return switch (timeout) {
-			case LockOptions.NO_WAIT -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case LockOptions.SKIP_LOCKED -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
 			default -> lockString;
 		};
 	}
@@ -1361,21 +1395,6 @@ public class PostgreSQLDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsNoWait() {
-		return true;
-	}
-
-	@Override
-	public boolean supportsWait() {
-		return false;
-	}
-
-	@Override
-	public boolean supportsSkipLocked() {
-		return true;
-	}
-
-	@Override
 	public boolean supportsInsertReturning() {
 		return true;
 	}
@@ -1412,11 +1431,6 @@ public class PostgreSQLDialect extends Dialect {
 	@Override
 	public FunctionalDependencyAnalysisSupport getFunctionalDependencyAnalysisSupport() {
 		return FunctionalDependencyAnalysisSupportImpl.TABLE_REFERENCE;
-	}
-
-	@Override
-	public RowLockStrategy getWriteRowLockStrategy() {
-		return RowLockStrategy.TABLE;
 	}
 
 	@Override
@@ -1548,35 +1562,18 @@ public class PostgreSQLDialect extends Dialect {
 		return sql;
 	}
 
-	@FunctionalInterface
-	private interface OptionalTableUpdateStrategy {
-		MutationOperation buildMutationOperation(
-				EntityMutationTarget mutationTarget,
-				OptionalTableUpdate optionalTableUpdate,
-				SessionFactoryImplementor factory);
-	}
-
 	@Override
 	public MutationOperation createOptionalTableUpdateOperation(
 			EntityMutationTarget mutationTarget,
 			OptionalTableUpdate optionalTableUpdate,
 			SessionFactoryImplementor factory) {
-		return optionalTableUpdateStrategy.buildMutationOperation( mutationTarget, optionalTableUpdate, factory );
-	}
-
-	private static MutationOperation usingMerge(
-			EntityMutationTarget mutationTarget,
-			OptionalTableUpdate optionalTableUpdate,
-			SessionFactoryImplementor factory) {
-		final PostgreSQLSqlAstTranslator<?> translator = new PostgreSQLSqlAstTranslator<>( factory, optionalTableUpdate );
-		return translator.createMergeOperation( optionalTableUpdate );
-	}
-
-	private static MutationOperation withoutMerge(
-			EntityMutationTarget mutationTarget,
-			OptionalTableUpdate optionalTableUpdate,
-			SessionFactoryImplementor factory) {
-		return new OptionalTableUpdateOperation( mutationTarget, optionalTableUpdate, factory );
+		if ( supportsMerge ) {
+			return new PostgreSQLSqlAstTranslator<>( factory, optionalTableUpdate )
+					.createMergeOperation( optionalTableUpdate );
+		}
+		else {
+			return super.createOptionalTableUpdateOperation( mutationTarget, optionalTableUpdate, factory );
+		}
 	}
 
 	@Override

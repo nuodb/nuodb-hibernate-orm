@@ -19,9 +19,7 @@ import org.hibernate.Internal;
 import org.hibernate.JDBCException;
 import org.hibernate.LockMode;
 import org.hibernate.cache.CacheException;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.id.IntegralDataTypeHolder;
-import org.hibernate.service.Service;
 import org.hibernate.type.SerializationException;
 
 import org.jboss.logging.BasicLogger;
@@ -34,7 +32,6 @@ import org.jboss.logging.annotations.ValidIdRange;
 import jakarta.transaction.Synchronization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import static org.hibernate.cfg.JdbcSettings.CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT;
 import static org.hibernate.cfg.ValidationSettings.JAKARTA_VALIDATION_MODE;
 import static org.jboss.logging.Logger.Level.DEBUG;
 import static org.jboss.logging.Logger.Level.ERROR;
@@ -74,32 +71,28 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Second-level cache disabled", id = 26)
 	void noRegionFactory();
 
-	@LogMessage(level = WARN)
-	@Message(value = "Calling joinTransaction() on a non JTA EntityManager", id = 27)
-	void callingJoinTransactionOnNonJtaEntityManager();
+	@LogMessage(level = DEBUG)
+	@Message(value = "Instantiating factory [%s] with settings: %s", id = 30)
+	void instantiatingFactory(String uuid, Map<String, Object> settings);
 
 	@LogMessage(level = DEBUG)
-	@Message(value = "Instantiating factory with settings: %s", id = 30)
-	void instantiatingFactory(Map<String, Object> settings);
+	@Message(value = "Closing factory [%s]", id = 31)
+	void closingFactory(String uuid);
 
 	@LogMessage(level = DEBUG)
-	@Message(value = "Closing factory", id = 31)
-	void closingFactory();
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Serializing factory: %s", id = 32)
+	@Message(value = "Serializing factory [%s]", id = 32)
 	void serializingFactory(String uuid);
 
 	@LogMessage(level = DEBUG)
-	@Message(value = "Deserialized factory: %s", id = 33)
+	@Message(value = "Deserialized factory [%s]", id = 33)
 	void deserializedFactory(String uuid);
 
 	@LogMessage(level = WARN)
-	@Message(value = "Composite-id class does not override equals(): %s", id = 38)
+	@Message(value = "Composite id class does not override equals(): %s", id = 38)
 	void compositeIdClassDoesNotOverrideEquals(String name);
 
 	@LogMessage(level = WARN)
-	@Message(value = "Composite-id class does not override hashCode(): %s", id = 39)
+	@Message(value = "Composite id class does not override hashCode(): %s", id = 39)
 	void compositeIdClassDoesNotOverrideHashCode(String name);
 
 	@LogMessage(level = WARN)
@@ -119,7 +112,7 @@ public interface CoreMessageLogger extends BasicLogger {
 	void duplicateGeneratorName(String name);
 
 	@LogMessage(level = INFO)
-	@Message(value = "entity-listener duplication, first event definition will be used: %s", id = 73)
+	@Message(value = "entity listener duplication, first event definition will be used: %s", id = 73)
 	void duplicateListener(String className);
 
 	@LogMessage(level = WARN)
@@ -153,11 +146,6 @@ public interface CoreMessageLogger extends BasicLogger {
 			+ " to unsafe use of the session): %s", id = 99)
 	void failed(Throwable throwable);
 
-	@LogMessage(level = INFO)
-	@Message(value = "Forcing table use for sequence-style generator due to pooled optimizer selection where db does not support pooled sequences",
-			id = 107)
-	void forcingTableUse();
-
 	@LogMessage(level = WARN)
 	@Message(value = "GUID identifier generated: %s", id = 113)
 	void guidGenerated(String result);
@@ -165,15 +153,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = DEBUG)
 	@Message(value = "Handling transient entity in delete processing", id = 114)
 	void handlingTransientEntity();
-
-	@LogMessage(level = WARN)
-	@Message(value = "Config specified explicit optimizer of [%s], but [%s=%s]; using optimizer [%s] increment default of [%s].", id = 116)
-	void honoringOptimizerSetting(
-			String none,
-			String incrementParam,
-			int incrementSize,
-			String positiveOrNegative,
-			int defaultIncrementSize);
 
 	@LogMessage(level = DEBUG)
 	@Message(value = "HQL: %s, time: %sms, rows: %s", id = 117)
@@ -285,15 +264,15 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Running schema validator", id = 229)
 	void runningSchemaValidator();
 
-	@LogMessage(level = WARN)
-	@Message(value = "Scoping types to session factory %s after already scoped %s", id = 233)
-	void scopingTypesToSessionFactoryAfterAlreadyScoped(
-			SessionFactoryImplementor factory,
-			SessionFactoryImplementor factory2);
+//	@LogMessage(level = WARN)
+//	@Message(value = "Scoping types to session factory %s after already scoped %s", id = 233)
+//	void scopingTypesToSessionFactoryAfterAlreadyScoped(
+//			SessionFactoryImplementor factory,
+//			SessionFactoryImplementor factory2);
 
-	@LogMessage(level = WARN)
-	@Message(value = "SQL Error: %s, SQLState: %s", id = 247)
-	void sqlWarning(int errorCode, String sqlState);
+//	@LogMessage(level = WARN)
+//	@Message(value = "SQL Error: %s, SQLState: %s", id = 247)
+//	void sqlWarning(int errorCode, String sqlState);
 
 	@LogMessage(level = INFO)
 	@Message(value = "Start time: %s", id = 251)
@@ -428,16 +407,8 @@ public interface CoreMessageLogger extends BasicLogger {
 	void unableToObtainConnectionToQueryMetadata(@Cause Exception e);
 
 	@LogMessage(level = ERROR)
-	@Message(value = "Could not read or init a hi value", id = 351)
-	void unableToReadOrInitHiValue(@Cause SQLException e);
-
-	@LogMessage(level = ERROR)
 	@Message(value = "Could not release a cache lock: %s", id = 353)
 	void unableToReleaseCacheLock(CacheException ce);
-
-	@LogMessage(level = INFO)
-	@Message(value = "Unable to release isolated connection [%s]", id = 356)
-	void unableToReleaseIsolatedConnection(Throwable ignore);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Unable to release type info result set", id = 357)
@@ -451,48 +422,18 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Unable to retrieve type info result set: %s", id = 362)
 	void unableToRetrieveTypeInfoResultSet(String string);
 
-	@LogMessage(level = INFO)
-	@Message(value = "Unable to rollback connection on exception [%s]", id = 363)
-	void unableToRollbackConnection(Exception ignore);
-
-	@LogMessage(level = INFO)
-	@Message(value = "Unable to rollback isolated transaction on error [%s]: [%s]", id = 364)
-	void unableToRollbackIsolatedTransaction(Exception e, Exception ignore);
-
 	@LogMessage(level = ERROR)
 	@Message(value = "Error running schema update", id = 366)
 	void unableToRunSchemaUpdate(@Cause Exception e);
-
-	@LogMessage(level = INFO)
-	@Message(value = "Error stopping service [%s]", id = 369)
-	void unableToStopService(Class<? extends Service> class1, @Cause Exception e);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Could not updateQuery hi value in: %s", id = 376)
-	void unableToUpdateQueryHiValue(String tableName, @Cause SQLException e);
 
 	@LogMessage(level = WARN)
 	@Message(value = "I/O reported error writing cached file: %s: %s", id = 378)
 	void unableToWriteCachedFile(String path, String message);
 
 	@LogMessage(level = WARN)
-	@Message(value = "ResultSet had no statement associated with it, but was not yet registered", id = 386)
-	void unregisteredResultSetWithoutStatement();
-
-	// Keep this at DEBUG level, rather than warn.  Numerous connection pool implementations can return a
-	// proxy/wrapper around the JDBC Statement, causing excessive logging here.  See HHH-8210.
-	@LogMessage(level = DEBUG)
-	@Message(value = "ResultSet's statement was not registered", id = 387)
-	void unregisteredStatement();
-
-	@LogMessage(level = WARN)
 	@Message(value = "The %s.%s.%s version of H2 implements temporary table creation such that it commits current transaction; multi-table, bulk HQL/JPQL will not work properly",
 			id = 393)
 	void unsupportedMultiTableBulkHqlJpaql(int majorVersion, int minorVersion, int buildId);
-
-	@LogMessage(level = INFO)
-	@Message(value = "Explicit segment value for id generator [%s.%s] suggested; using default [%s]", id = 398)
-	void usingDefaultIdGeneratorSegmentValue(String tableName, String segmentColumnName, String defaultToUse);
 
 	@LogMessage(level = ERROR)
 	@Message(value = "Don't use old DTDs, read the Hibernate 3.x Migration Guide", id = 404)
@@ -514,10 +455,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = WARN)
 	@Message(value = "Write locks via update not supported for non-versioned entities [%s]", id = 416)
 	void writeLocksNotSupported(String entityName);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Closing unreleased batch", id = 420)
-	void closingUnreleasedBatch();
 
 	@LogMessage(level = WARN)
 	@Message(
@@ -577,21 +514,6 @@ public interface CoreMessageLogger extends BasicLogger {
 					"using 'key'/'value' as required by spec; attempting to DoTheRightThing"
 	)
 	void nonCompliantMapConversion(String collectionRole);
-
-	@LogMessage(level = WARN)
-	@Message(
-			id = 450,
-			value = "Encountered request for Service by non-primary service role [%s -> %s]; please update usage"
-	)
-	void alternateServiceRole(String requestedRole, String targetRole);
-
-	@LogMessage(level = WARN)
-	@Message(
-			id = 451,
-			value = "Transaction afterCompletion called by a background thread; " +
-					"delaying afterCompletion processing until the original thread can handle it. [status=%s]"
-	)
-	void rollbackFromBackgroundThread(int status);
 
 	// 458-466 reserved for use by main branch (ORM 5.0.0)
 
@@ -670,10 +592,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Detaching an uninitialized collection with queued operations from a session: %s", id = 496)
 	void queuedOperationWhenDetachFromSession(String collectionInfoString);
 
-	@LogMessage(level = WARN)
-	@Message(value = "The increment size of the [%s] sequence is set to [%d] in the entity mapping while the associated database sequence increment size is [%d]. The database sequence increment size will take precedence to avoid identifier allocation conflicts.", id = 497)
-	void sequenceIncrementSizeMismatch(String sequenceName, int incrementSize, int databaseIncrementSize);
-
 	@LogMessage(level = DEBUG)
 	@Message(value = "Detaching an uninitialized collection with queued operations from a session due to rollback: %s", id = 498)
 	void queuedOperationWhenDetachFromSessionOnRollback(String collectionInfoString);
@@ -685,10 +603,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = WARN)
 	@Message(value = "Multiple configuration properties defined to create schema. Choose at most one among 'jakarta.persistence.create-database-schemas' or 'hibernate.hbm2ddl.create_namespaces'.", id = 504)
 	void multipleSchemaCreationSettingsDefined();
-
-	@LogMessage(level = WARN)
-	@Message(value = "Ignoring ServiceConfigurationError caught while trying to instantiate service '%s'.", id = 505)
-	void ignoringServiceConfigurationError(Class<?> serviceContract, @Cause ServiceConfigurationError error);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Detaching an uninitialized collection with enabled filters from a session: %s", id = 506)
@@ -760,18 +674,12 @@ public interface CoreMessageLogger extends BasicLogger {
 	)
 	void duplicatedPersistenceUnitName(String name);
 
-	@LogMessage(level = DEBUG)
+	@LogMessage(level = WARN)
 	@Message(
-			id = 455,
-			value =
-					"'" + CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT + "' " +
-					"""
-					was enabled. This setting should only be enabled when JDBC Connections obtained by Hibernate \
-					from the ConnectionProvider have auto-commit disabled. Enabling this setting when connections \
-					have auto-commit enabled leads to execution of SQL operations outside of any JDBC transaction.\
-					"""
+			id = 15019,
+			value = "Invalid JSON column type [%s], was expecting [%s]; for efficiency schema should be migrate to JSON DDL type"
 	)
-	void connectionProviderDisablesAutoCommitEnabled();
+	void invalidJSONColumnType(String actual, String expected);
 
 	@LogMessage(level = TRACE)
 	@Message(value = "Closing logical connection", id = 456)
@@ -780,6 +688,38 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = TRACE)
 	@Message(value = "Logical connection closed", id = 457)
 	void logicalConnectionClosed();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Statistics initialized", id = 460)
+	void statisticsInitialized();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Statistics collection enabled", id = 461)
+	void statisticsEnabled();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Statistics collection disabled", id = 462)
+	void statisticsDisabled();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Statistics reset", id = 463)
+	void statisticsReset();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Initializing service: %s", id = 500)
+	void initializingService(String serviceRole);
+
+	@LogMessage(level = INFO)
+	@Message(value = "Error stopping service: %s", id = 369)
+	void unableToStopService(String serviceRole, @Cause Exception e);
+
+	@LogMessage(level = WARN)
+	@Message(value = "Ignoring ServiceConfigurationError caught while instantiating service: %s", id = 505)
+	void ignoringServiceConfigurationError(String serviceContract, @Cause ServiceConfigurationError error);
+
+	@LogMessage(level = WARN)
+	@Message(value = "Encountered request for service by non-primary service role [%s -> %s]", id = 450)
+	void alternateServiceRole(String requestedRole, String targetRole);
 
 	@LogMessage(level = DEBUG)
 	@Message(

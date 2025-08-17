@@ -13,10 +13,11 @@ import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.query.spi.NativeQueryInterpreter;
 import org.hibernate.internal.CoreLogging;
+import org.hibernate.internal.util.config.ConfigurationException;
 import org.hibernate.internal.util.config.ConfigurationHelper;
 import org.hibernate.metamodel.MappingMetamodel;
 import org.hibernate.metamodel.model.domain.JpaMetamodel;
-import org.hibernate.query.BindingContext;
+import org.hibernate.type.BindingContext;
 import org.hibernate.query.hql.HqlTranslator;
 import org.hibernate.query.hql.internal.StandardHqlTranslator;
 import org.hibernate.query.hql.spi.SqmCreationOptions;
@@ -148,8 +149,12 @@ public class QueryEngineImpl implements QueryEngine {
 		dialect.initializeFunctionRegistry( functionContributions );
 
 		if ( LOG_HQL_FUNCTIONS.isDebugEnabled() ) {
+			var list = new StringBuilder("Available HQL Functions:\n");
 			sqmFunctionRegistry.getFunctionsByName()
-					.forEach( entry -> LOG_HQL_FUNCTIONS.debug( entry.getValue().getSignature( entry.getKey() ) ) );
+					.forEach( entry -> list.append('\t')
+											.append( entry.getValue().getSignature( entry.getKey() ) )
+											.append('\n') );
+			LOG_HQL_FUNCTIONS.debug( list.toString() );
 		}
 
 		return sqmFunctionRegistry;
@@ -167,9 +172,9 @@ public class QueryEngineImpl implements QueryEngine {
 		return contributors;
 	}
 
-	private static QueryInterpretationCache buildInterpretationCache(
+	public static QueryInterpretationCache buildInterpretationCache(
 			ServiceRegistry serviceRegistry, Map<String, Object> properties) {
-		final boolean explicitUseCache = ConfigurationHelper.getBoolean(
+		final boolean useCache = ConfigurationHelper.getBoolean(
 				AvailableSettings.QUERY_PLAN_CACHE_ENABLED,
 				properties,
 				// enabled by default
@@ -181,12 +186,20 @@ public class QueryEngineImpl implements QueryEngine {
 				properties
 		);
 
-		if ( explicitUseCache || explicitMaxPlanSize != null && explicitMaxPlanSize > 0 ) {
-			final int size = explicitMaxPlanSize != null
-					? explicitMaxPlanSize
-					: QueryEngine.DEFAULT_QUERY_PLAN_MAX_COUNT;
+		//Let's avoid some confusion and check settings consistency:
+		final int appliedMaxPlanSize = explicitMaxPlanSize == null
+				? QueryEngine.DEFAULT_QUERY_PLAN_MAX_COUNT
+				: explicitMaxPlanSize;
+		if ( !useCache && explicitMaxPlanSize != null && appliedMaxPlanSize > 0 ) {
+			throw new ConfigurationException( "Inconsistent configuration: '" + AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE + "' can only be set to a greater than zero value when '" + AvailableSettings.QUERY_PLAN_CACHE_ENABLED + "' is enabled" );
+		}
 
-			return new QueryInterpretationCacheStandardImpl( size, serviceRegistry );
+		if ( appliedMaxPlanSize < 0 ) {
+			throw new ConfigurationException( "Inconsistent configuration: '" + AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE + "' can't be set to a negative value. To disable the query plan cache set '" + AvailableSettings.QUERY_PLAN_CACHE_ENABLED + "' to 'false'" );
+		}
+
+		if ( useCache ) {
+			return new QueryInterpretationCacheStandardImpl( appliedMaxPlanSize, serviceRegistry );
 		}
 		else {
 			// disabled

@@ -287,10 +287,10 @@ public class BasicValue extends SimpleValue
 			throw new IllegalArgumentException( "Incoming column was null" );
 		}
 
-		final Selectable column = getColumn();
-		if ( column == incomingColumn || column.getText().equals( incomingColumn.getText() ) ) {
-			log.debugf( "Skipping column re-registration: %s.%s", getTable().getName(), column.getText() );
-		}
+//		final Selectable column = getColumn();
+//		if ( column == incomingColumn || column.getText().equals( incomingColumn.getText() ) ) {
+//			log.debugf( "Skipping column re-registration: %s.%s", getTable().getName(), column.getText() );
+//		}
 //		else {
 //			throw new IllegalStateException(
 //					"BasicValue [" + ownerName + "." + propertyName +
@@ -637,7 +637,7 @@ public class BasicValue extends SimpleValue
 			final MetadataBuildingContext context = getBuildingContext();
 			final TypeDefinition autoAppliedTypeDef = context.getTypeDefinitionRegistry().resolveAutoApplied( castType );
 			if ( autoAppliedTypeDef != null ) {
-				log.debug("BasicValue resolution matched auto-applied type-definition");
+				log.trace( "BasicValue resolution matched auto-applied type definition" );
 				return autoAppliedTypeDef.resolve( getTypeParameters(), null, context, this );
 			}
 		}

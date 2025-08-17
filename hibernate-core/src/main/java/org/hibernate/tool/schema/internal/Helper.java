@@ -65,7 +65,7 @@ public class Helper {
 		}
 		else {
 			final String scriptSourceSettingString = scriptSourceSetting.toString();
-			log.debugf( "Attempting to resolve script source setting : %s", scriptSourceSettingString );
+			log.tracef( "Attempting to resolve script source setting: %s", scriptSourceSettingString );
 
 			final String[] paths = splitAtCommas( scriptSourceSettingString );
 			if ( paths.length == 1 ) {
@@ -111,7 +111,7 @@ public class Helper {
 		}
 		else {
 			final String scriptTargetSettingString = scriptTargetSetting.toString();
-			log.debugf( "Attempting to resolve script source setting : %s", scriptTargetSettingString );
+			log.tracef( "Attempting to resolve script source setting: %s", scriptTargetSettingString );
 
 			// setting could be either:
 			//		1) string URL representation (i.e., "file://...")
@@ -184,7 +184,8 @@ public class Helper {
 			);
 		}
 		catch (SQLException e) {
-			throw jdbcEnvironment.getSqlExceptionHelper().convert( e, "Unable to build DatabaseInformation" );
+			throw jdbcEnvironment.getSqlExceptionHelper()
+					.convert( e, "Unable to build DatabaseInformation" );
 		}
 	}
 

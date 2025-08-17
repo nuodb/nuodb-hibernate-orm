@@ -162,18 +162,22 @@ public abstract class AbstractQueryMethod extends AbstractAnnotatedMethod {
 				declaration
 						.append(", ");
 			}
-			final String paramType = paramTypes.get(i);
-			if ( !isNullable(i) && !isPrimitive(paramType)
-					|| isSessionParameter(paramType) ) {
+			if ( isNonNull(i, paramTypes) ) {
 				notNull( declaration );
 			}
 			declaration
-					.append(annotationMetaEntity.importType(paramType))
+					.append(annotationMetaEntity.importType(paramTypes.get(i)))
 					.append(" ")
-					.append(paramNames.get(i).replace('.', '$'));
+					.append(parameterName(paramNames.get(i)));
 		}
 		declaration
 				.append(")");
+	}
+
+	boolean isNonNull(int i, List<String> paramTypes) {
+		final String paramType = paramTypes.get(i);
+		return !isNullable(i) && !isPrimitive(paramType)
+			|| isSpecialParam(paramType);
 	}
 
 	static boolean isSessionParameter(String paramType) {
@@ -317,8 +321,9 @@ public abstract class AbstractQueryMethod extends AbstractAnnotatedMethod {
 				}
 			}
 			else if ( isRangeParam(paramType) && returnTypeName!= null ) {
-				final TypeElement entityElement = annotationMetaEntity.getContext().getElementUtils()
-						.getTypeElement( returnTypeName );
+				final TypeElement entityElement =
+						annotationMetaEntity.getContext().getElementUtils()
+								.getTypeElement( returnTypeName );
 				declaration
 						.append("\t_spec.restrict(")
 						.append(annotationMetaEntity.importType(HIB_RESTRICTION))

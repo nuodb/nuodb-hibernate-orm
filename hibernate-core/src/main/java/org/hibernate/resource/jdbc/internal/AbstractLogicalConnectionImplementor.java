@@ -46,18 +46,17 @@ public abstract class AbstractLogicalConnectionImplementor implements LogicalCon
 
 	@Override
 	public void afterStatement() {
-		log.trace( "LogicalConnection#afterStatement" );
+//		log.trace( "LogicalConnection#afterStatement" );
 	}
 
 	@Override
 	public void beforeTransactionCompletion() {
-		log.trace( "LogicalConnection#beforeTransactionCompletion" );
+//		log.trace( "LogicalConnection#beforeTransactionCompletion" );
 	}
 
 	@Override
 	public void afterTransaction() {
-		log.trace( "LogicalConnection#afterTransaction" );
-
+//		log.trace( "LogicalConnection#afterTransaction" );
 		resourceRegistry.releaseResources();
 	}
 
@@ -109,22 +108,20 @@ public abstract class AbstractLogicalConnectionImplementor implements LogicalCon
 	protected void resetConnection(boolean initiallyAutoCommit) {
 		try {
 			if ( initiallyAutoCommit ) {
-				log.trace( "re-enabling auto-commit on JDBC Connection after completion of JDBC-based transaction" );
+				log.trace( "Re-enabling auto-commit on JDBC Connection after completion of JDBC-based transaction" );
 				getConnectionForTransactionManagement().setAutoCommit( true );
 				status = TransactionStatus.NOT_ACTIVE;
 			}
 		}
 		catch ( Exception e ) {
-			log.debug(
-					"Could not re-enable auto-commit on JDBC Connection after completion of JDBC-based transaction : " + e
-			);
+			log.debug( "Could not re-enable auto-commit on JDBC Connection after completion of JDBC-based transaction", e );
 		}
 	}
 
 	@Override
 	public void rollback() {
 		try {
-			log.trace( "Preparing to rollback transaction via JDBC Connection.rollback()" );
+			log.trace( "Preparing to roll back transaction via JDBC Connection.rollback()" );
 			status = TransactionStatus.ROLLING_BACK;
 			if ( isPhysicallyConnected() ) {
 				getConnectionForTransactionManagement().rollback();
@@ -133,7 +130,7 @@ public abstract class AbstractLogicalConnectionImplementor implements LogicalCon
 				errorIfClosed();
 			}
 			status = TransactionStatus.ROLLED_BACK;
-			log.trace( "Transaction rolled-back via JDBC Connection.rollback()" );
+			log.trace( "Transaction rolled back via JDBC Connection.rollback()" );
 		}
 		catch( SQLException e ) {
 			status = TransactionStatus.FAILED_ROLLBACK;

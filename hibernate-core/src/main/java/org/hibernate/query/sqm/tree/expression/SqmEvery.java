@@ -6,12 +6,14 @@ package org.hibernate.query.sqm.tree.expression;
 
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.select.SqmSubQuery;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
+
+import java.util.Objects;
 
 /**
  * @author Gavin King
@@ -26,7 +28,7 @@ public class SqmEvery<T> extends AbstractSqmExpression<T> {
 	}
 
 	@Override
-	public @Nullable SqmExpressible<T> getNodeType() {
+	public @Nullable SqmBindableType<T> getNodeType() {
 		return subquery.getNodeType();
 	}
 
@@ -63,4 +65,14 @@ public class SqmEvery<T> extends AbstractSqmExpression<T> {
 		subquery.appendHqlString( hql, context );
 	}
 
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmEvery<?> sqmAny
+			&& Objects.equals( this.subquery, sqmAny.subquery );
+	}
+
+	@Override
+	public int hashCode() {
+		return subquery.hashCode();
+	}
 }

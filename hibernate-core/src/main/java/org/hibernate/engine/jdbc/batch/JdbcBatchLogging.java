@@ -38,6 +38,10 @@ public interface JdbcBatchLogging extends BasicLogger {
 	Logger BATCH_LOGGER = Logger.getLogger( NAME );
 	JdbcBatchLogging BATCH_MESSAGE_LOGGER = Logger.getMessageLogger( MethodHandles.lookup(), JdbcBatchLogging.class, NAME );
 
+	@LogMessage(level = INFO)
+	@Message(id=100501, value = "Automatic JDBC statement batching enabled (maximum batch size %s)")
+	void batchingEnabled(int batchSize);
+
 	@LogMessage(level = WARN)
 	@Message(id = 100502, value = "Unable to release batch statement")
 	void unableToReleaseBatchStatement();
@@ -57,4 +61,12 @@ public interface JdbcBatchLogging extends BasicLogger {
 	@LogMessage(level = TRACE)
 	@Message("Executing JDBC batch (%s / %s) - [%s]")
 	void executeBatch(int batchPosition, int batchSize, String string);
+
+	@LogMessage(level = TRACE)
+	@Message("Conditionally executing JDBC batch - [%s]")
+	void conditionallyExecuteBatch(String string);
+
+	@LogMessage(level = TRACE)
+	@Message("Aborting JDBC batch - [%s]")
+	void abortBatch(String string);
 }

@@ -12,7 +12,7 @@ import org.hibernate.metamodel.MappingMetamodel;
 import org.hibernate.metamodel.mapping.JdbcMapping;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.query.sqm.tuple.TupleType;
-import org.hibernate.query.BindingContext;
+import org.hibernate.type.BindingContext;
 import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.tree.SqmTypedNode;
 import org.hibernate.query.sqm.tree.expression.SqmCollation;
@@ -75,7 +75,7 @@ public class ArgumentTypesValidator implements ArgumentsValidator {
 			BindingContext bindingContext) {
 		delegate.validate( arguments, functionName, bindingContext );
 		int count = 0;
-		for (SqmTypedNode<?> argument : arguments) {
+		for ( var argument : arguments ) {
 //			JdbcTypeIndicators indicators = typeConfiguration.getCurrentBaseSqlTypeIndicators();
 			final SqmExpressible<?> nodeType = argument.getNodeType();
 			final FunctionParameterType type = count < types.length ? types[count++] : types[types.length - 1];
@@ -182,7 +182,7 @@ public class ArgumentTypesValidator implements ArgumentsValidator {
 		for ( SqlAstNode argument : arguments ) {
 			if ( argument instanceof Expression expression ) {
 				final JdbcMappingContainer expressionType = expression.getExpressionType();
-				if (expressionType != null) {
+				if ( expressionType != null ) {
 					if ( isUnknownExpressionType( expressionType ) ) {
 						count += expressionType.getJdbcTypeCount();
 					}
@@ -199,8 +199,8 @@ public class ArgumentTypesValidator implements ArgumentsValidator {
 	 */
 	public static boolean isUnknownExpressionType(JdbcMappingContainer expressionType) {
 		return expressionType instanceof JavaObjectType
-			|| expressionType instanceof BasicType
-				&& isUnknown( ((BasicType<?>) expressionType).getJavaTypeDescriptor() );
+			|| expressionType instanceof BasicType<?> basicType
+				&& isUnknown( basicType.getJavaTypeDescriptor() );
 	}
 
 	private int validateArgument(int paramNumber, JdbcMappingContainer expressionType, String functionName) {

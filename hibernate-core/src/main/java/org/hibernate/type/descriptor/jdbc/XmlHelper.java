@@ -39,7 +39,7 @@ import org.hibernate.type.descriptor.java.PrimitiveByteArrayJavaType;
 
 import static java.lang.Character.isLetter;
 import static java.lang.Character.isLetterOrDigit;
-import static org.hibernate.type.descriptor.jdbc.StructHelper.getEmbeddedPart;
+import static org.hibernate.type.descriptor.jdbc.StructHelper.getSubPart;
 import static org.hibernate.type.descriptor.jdbc.StructHelper.instantiate;
 
 /**
@@ -335,7 +335,7 @@ public class XmlHelper {
 		final ArrayList<Object> arrayList = new ArrayList<>();
 		final int end = fromArrayString(
 				string,
-				false,
+				true,
 				options,
 				COLLECTION_START_TAG.length(),
 				arrayList,
@@ -646,7 +646,7 @@ public class XmlHelper {
 								else {
 									arrayList.add( array );
 								}
-								i = end + 1;
+								i = end;
 							}
 							else {
 								throw new IllegalArgumentException( "XML not properly formed: " + string.substring( start ) );
@@ -758,7 +758,7 @@ public class XmlHelper {
 		final int attributeCount = embeddableMappingType.getNumberOfAttributeMappings();
 		for ( int i = 0; i < attributeCount; i++ ) {
 			final Object attributeValue = attributeValues == null ? null : attributeValues[i];
-			final ValuedModelPart attributeMapping = getEmbeddedPart( embeddableMappingType, i );
+			final ValuedModelPart attributeMapping = getSubPart( embeddableMappingType, i );
 			if ( attributeMapping instanceof SelectableMapping selectable ) {
 				final String tagName = selectable.getSelectableName();
 				sb.append( '<' );
@@ -788,6 +788,10 @@ public class XmlHelper {
 				if ( tagName != null ) {
 					sb.append( '<' );
 					sb.append( tagName );
+					if ( attributeValue == null ) {
+						sb.append( "/>" );
+						continue;
+					}
 					sb.append( '>' );
 				}
 				toString(
@@ -920,21 +924,22 @@ public class XmlHelper {
 						final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
 						for ( int i = 0; i < length; i++ ) {
 							final Object arrayElement = Array.get( value, i );
-							final Object[] arrayElementValues = arrayElement == null
-									? null
-									: embeddableMappingType.getValues( arrayElement );
-							appender.append( START_TAG );
-							toString( embeddableMappingType, arrayElementValues, options, appender );
-							appender.append( END_TAG );
+							if ( arrayElement == null ) {
+								appender.append( NULL_TAG );
+							}
+							else {
+								final Object[] arrayElementValues = embeddableMappingType.getValues( arrayElement );
+								appender.append( START_TAG );
+								toString( embeddableMappingType, arrayElementValues, options, appender );
+								appender.append( END_TAG );
+							}
 						}
 					}
 					else {
 						for ( int i = 0; i < length; i++ ) {
 							final Object arrayElement = Array.get( value, i );
 							if ( arrayElement == null ) {
-								appender.append( '<' );
-								appender.append( ROOT_TAG );
-								appender.append( "/>" );
+								appender.append( NULL_TAG );
 							}
 							else {
 								appender.append( START_TAG );

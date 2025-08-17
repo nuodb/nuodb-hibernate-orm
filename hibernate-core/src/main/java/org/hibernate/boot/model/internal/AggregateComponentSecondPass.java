@@ -12,6 +12,7 @@ import java.util.TreeSet;
 import org.hibernate.AnnotationException;
 import org.hibernate.MappingException;
 import org.hibernate.annotations.Comment;
+import org.hibernate.boot.model.naming.Identifier;
 import org.hibernate.boot.model.relational.Database;
 import org.hibernate.boot.model.relational.Namespace;
 import org.hibernate.boot.model.relational.QualifiedName;
@@ -90,7 +91,11 @@ public class AggregateComponentSecondPass implements SecondPass {
 					structName.getCatalogName(),
 					structName.getSchemaName()
 			);
-			final UserDefinedObjectType udt = new UserDefinedObjectType( "orm", namespace, structName.getObjectName() );
+			if ( !database.getDialect().supportsUserDefinedTypes() ) {
+				throw new MappingException( "Database does not support user-defined types (remove '@Struct' annotation)" );
+			}
+			final UserDefinedObjectType udt =
+					new UserDefinedObjectType( "orm", namespace, structName.getObjectName() );
 			final Comment comment = componentClassDetails.getDirectAnnotationUsage( Comment.class );
 			if ( comment != null ) {
 				udt.setComment( comment.value() );
@@ -107,7 +112,8 @@ public class AggregateComponentSecondPass implements SecondPass {
 				orderColumns( registeredUdt, originalOrder );
 			}
 			else {
-				addAuxiliaryObjects = false;
+				addAuxiliaryObjects =
+						isAggregateArray() && namespace.locateUserDefinedArrayType( Identifier.toIdentifier( aggregateColumn.getSqlType() ) ) == null;
 				validateEqual( registeredUdt, udt );
 			}
 		}
@@ -231,17 +237,15 @@ public class AggregateComponentSecondPass implements SecondPass {
 	}
 
 	private boolean isAggregateArray() {
-		switch ( component.getAggregateColumn().getSqlTypeCode( context.getMetadataCollector() ) ) {
-			case SqlTypes.STRUCT_ARRAY:
-			case SqlTypes.STRUCT_TABLE:
-			case SqlTypes.JSON_ARRAY:
-			case SqlTypes.XML_ARRAY:
-			case SqlTypes.ARRAY:
-			case SqlTypes.TABLE:
-				return true;
-			default:
-				return false;
-		}
+		return switch ( component.getAggregateColumn().getSqlTypeCode( context.getMetadataCollector() ) ) {
+			case SqlTypes.STRUCT_ARRAY,
+				SqlTypes.STRUCT_TABLE,
+				SqlTypes.JSON_ARRAY,
+				SqlTypes.XML_ARRAY,
+				SqlTypes.ARRAY,
+				SqlTypes.TABLE -> true;
+			default -> false;
+		};
 	}
 
 	private void orderColumns(UserDefinedObjectType userDefinedType, int[] originalOrder) {

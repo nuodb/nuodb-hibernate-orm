@@ -211,6 +211,8 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 		queryPlanCacheMissCount.reset();
 
 		resetStart();
+
+		log.statisticsReset();
 	}
 
 	private void resetStart(@UnknownInitialization StatisticsImpl this) {
@@ -235,6 +237,12 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 	@Override
 	public void setStatisticsEnabled(boolean enabled) {
 		isStatisticsEnabled = enabled;
+		if ( enabled ) {
+			log.statisticsEnabled();
+		}
+		else {
+			log.statisticsDisabled();
+		}
 	}
 
 
@@ -353,6 +361,13 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 		secondLevelCacheMissCount.increment();
 		getDomainDataRegionStatistics( regionName ).incrementMissCount();
 		getEntityStatistics( entityName.getFullPath() ).incrementCacheMissCount();
+	}
+
+	@Override
+	public void entityCacheRemove(NavigableRole entityName, String regionName) {
+		secondLevelCacheMissCount.increment();
+		getDomainDataRegionStatistics( regionName ).incrementRemoveCount();
+		getEntityStatistics( entityName.getFullPath() ).incrementCacheRemoveCount();
 	}
 
 

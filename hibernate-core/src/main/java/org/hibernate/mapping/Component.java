@@ -69,7 +69,7 @@ import static org.hibernate.metamodel.mapping.EntityDiscriminatorMapping.DISCRIM
  * @author Gavin King
  * @author Steve Ebersole
  */
-public class Component extends SimpleValue implements MetaAttributable, SortableValue {
+public class Component extends SimpleValue implements AttributeContainer, MetaAttributable, SortableValue {
 
 	private String componentClassName;
 	private boolean embedded;
@@ -173,6 +173,7 @@ public class Component extends SimpleValue implements MetaAttributable, Sortable
 		}
 	}
 
+	@Override
 	public void addProperty(Property p) {
 		addProperty( p, null );
 	}
@@ -304,7 +305,7 @@ public class Component extends SimpleValue implements MetaAttributable, Sortable
 				// since only one subtype can exist at one time
 				final Map<String, Set<String>> distinctColumnsByClass = new HashMap<>();
 				for ( Property prop : properties ) {
-					if ( prop.isUpdateable() || prop.isInsertable() ) {
+					if ( prop.isUpdatable() || prop.isInsertable() ) {
 						final String declaringClass = propertyDeclaringClasses.get( prop );
 						final Set<String> set = distinctColumnsByClass.computeIfAbsent(
 								declaringClass,
@@ -391,6 +392,11 @@ public class Component extends SimpleValue implements MetaAttributable, Sortable
 		return buildingContext.getBuildingOptions().isAllowExtensionsInCdi()
 				? bootstrapContext.getManagedBeanRegistry().getBean( clazz ).getBeanInstance()
 				: FallbackBeanInstanceProducer.INSTANCE.produceBeanInstance( clazz );
+	}
+
+	@Override
+	public boolean contains(Property property) {
+		return properties.contains( property );
 	}
 
 	@Override
@@ -507,7 +513,7 @@ public class Component extends SimpleValue implements MetaAttributable, Sortable
 		boolean[] result = new boolean[getColumnSpan()];
 		int i = 0;
 		for ( Property prop : getProperties() ) {
-			i += copyFlags( prop.getValue().getColumnUpdateability(), result, i, prop.isUpdateable() );
+			i += copyFlags( prop.getValue().getColumnUpdateability(), result, i, prop.isUpdatable() );
 		}
 		if ( isPolymorphic() ) {
 			i += copyFlags( getDiscriminator().getColumnUpdateability(), result, i, true );
@@ -546,6 +552,7 @@ public class Component extends SimpleValue implements MetaAttributable, Sortable
 		return properties.get( index );
 	}
 
+	@Override
 	public Property getProperty(String propertyName) throws MappingException {
 		for ( Property prop : properties ) {
 			if ( prop.getName().equals(propertyName) ) {

@@ -4,67 +4,28 @@
  */
 package org.hibernate.internal;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Reader;
-import java.io.Serial;
-import java.io.Serializable;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.NClob;
-import java.sql.SQLException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.function.UnaryOperator;
-
+import jakarta.persistence.CacheRetrieveMode;
+import jakarta.persistence.CacheStoreMode;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityGraph;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.FindOption;
+import jakarta.persistence.FlushModeType;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.LockOption;
+import jakarta.persistence.PersistenceException;
 import jakarta.persistence.PessimisticLockScope;
+import jakarta.persistence.RefreshOption;
 import jakarta.persistence.Timeout;
+import jakarta.persistence.TransactionRequiredException;
+import jakarta.persistence.criteria.CriteriaSelect;
 import jakarta.persistence.metamodel.EntityType;
-import org.hibernate.BatchSize;
-import org.hibernate.CacheMode;
-import org.hibernate.ConnectionAcquisitionMode;
-import org.hibernate.ConnectionReleaseMode;
-import org.hibernate.EnabledFetchProfile;
-import org.hibernate.EntityFilterException;
-import org.hibernate.FetchNotFoundException;
-import org.hibernate.FlushMode;
-import org.hibernate.HibernateException;
-import org.hibernate.Interceptor;
-import org.hibernate.JDBCException;
-import org.hibernate.LobHelper;
-import org.hibernate.LockMode;
-import org.hibernate.LockOptions;
-import org.hibernate.MappingException;
-import org.hibernate.MultiIdentifierLoadAccess;
-import org.hibernate.NaturalIdLoadAccess;
-import org.hibernate.NaturalIdMultiLoadAccess;
-import org.hibernate.ObjectDeletedException;
-import org.hibernate.ObjectNotFoundException;
-import org.hibernate.ReadOnlyMode;
-import org.hibernate.ReplicationMode;
-import org.hibernate.Session;
-import org.hibernate.SessionBuilder;
-import org.hibernate.SessionEventListener;
-import org.hibernate.SessionException;
-import org.hibernate.SharedSessionBuilder;
-import org.hibernate.SimpleNaturalIdLoadAccess;
-import org.hibernate.Transaction;
-import org.hibernate.TypeMismatchException;
-import org.hibernate.UnknownProfileException;
-import org.hibernate.UnresolvableObjectException;
+import jakarta.persistence.metamodel.Metamodel;
+import org.hibernate.*;
 import org.hibernate.action.spi.AfterTransactionCompletionProcess;
 import org.hibernate.bytecode.enhance.spi.interceptor.EnhancementAsProxyLazinessInterceptor;
 import org.hibernate.collection.spi.PersistentCollection;
 import org.hibernate.engine.internal.PersistenceContexts;
-import org.hibernate.engine.jdbc.LobCreator;
-import org.hibernate.engine.jdbc.env.internal.NonContextualLobCreator;
 import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
 import org.hibernate.engine.spi.ActionQueue;
 import org.hibernate.engine.spi.ActionQueue.TransactionCompletionProcesses;
@@ -78,46 +39,10 @@ import org.hibernate.engine.spi.PersistentAttributeInterceptor;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
-import org.hibernate.event.service.spi.EventListenerGroups;
-import org.hibernate.event.spi.AutoFlushEvent;
-import org.hibernate.event.spi.AutoFlushEventListener;
-import org.hibernate.event.spi.ClearEvent;
-import org.hibernate.event.spi.ClearEventListener;
-import org.hibernate.event.spi.DeleteContext;
-import org.hibernate.event.spi.DeleteEvent;
-import org.hibernate.event.spi.DeleteEventListener;
-import org.hibernate.event.spi.DirtyCheckEvent;
-import org.hibernate.event.spi.DirtyCheckEventListener;
-import org.hibernate.event.spi.EventSource;
-import org.hibernate.event.spi.EvictEvent;
-import org.hibernate.event.spi.EvictEventListener;
-import org.hibernate.event.spi.FlushEvent;
-import org.hibernate.event.spi.FlushEventListener;
-import org.hibernate.event.spi.InitializeCollectionEvent;
-import org.hibernate.event.spi.InitializeCollectionEventListener;
-import org.hibernate.event.spi.LoadEvent;
-import org.hibernate.event.spi.LoadEventListener;
-import org.hibernate.event.spi.LockEvent;
-import org.hibernate.event.spi.LockEventListener;
-import org.hibernate.event.spi.MergeContext;
-import org.hibernate.event.spi.MergeEvent;
-import org.hibernate.event.spi.MergeEventListener;
-import org.hibernate.event.spi.PersistContext;
-import org.hibernate.event.spi.PersistEvent;
-import org.hibernate.event.spi.PersistEventListener;
-import org.hibernate.event.spi.PostLoadEvent;
-import org.hibernate.event.spi.PostLoadEventListener;
-import org.hibernate.event.spi.RefreshContext;
-import org.hibernate.event.spi.RefreshEvent;
-import org.hibernate.event.spi.RefreshEventListener;
-import org.hibernate.event.spi.ReplicateEvent;
-import org.hibernate.event.spi.ReplicateEventListener;
-import org.hibernate.loader.internal.CacheLoadHelper;
-import org.hibernate.metamodel.model.domain.EntityDomainType;
-import org.hibernate.metamodel.model.domain.ManagedDomainType;
-import org.hibernate.resource.transaction.spi.TransactionObserver;
-import org.hibernate.event.monitor.spi.EventMonitor;
 import org.hibernate.event.monitor.spi.DiagnosticEvent;
+import org.hibernate.event.monitor.spi.EventMonitor;
+import org.hibernate.event.service.spi.EventListenerGroups;
+import org.hibernate.event.spi.*;
 import org.hibernate.event.spi.LoadEventListener.LoadType;
 import org.hibernate.graph.GraphSemantic;
 import org.hibernate.graph.RootGraph;
@@ -127,10 +52,13 @@ import org.hibernate.jpa.internal.LegacySpecHelper;
 import org.hibernate.jpa.internal.util.ConfigurationHelper;
 import org.hibernate.jpa.internal.util.FlushModeTypeHelper;
 import org.hibernate.jpa.internal.util.LockModeTypeHelper;
+import org.hibernate.loader.internal.CacheLoadHelper;
 import org.hibernate.loader.internal.IdentifierLoadAccessImpl;
 import org.hibernate.loader.internal.LoadAccessContext;
 import org.hibernate.loader.internal.NaturalIdLoadAccessImpl;
 import org.hibernate.loader.internal.SimpleNaturalIdLoadAccessImpl;
+import org.hibernate.metamodel.model.domain.EntityDomainType;
+import org.hibernate.metamodel.model.domain.ManagedDomainType;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.procedure.ProcedureCall;
 import org.hibernate.procedure.spi.NamedCallableQueryMemento;
@@ -148,31 +76,34 @@ import org.hibernate.resource.jdbc.spi.PhysicalConnectionHandlingMode;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.hibernate.resource.transaction.spi.TransactionCoordinator;
 import org.hibernate.resource.transaction.spi.TransactionCoordinatorBuilder;
+import org.hibernate.resource.transaction.spi.TransactionObserver;
 import org.hibernate.resource.transaction.spi.TransactionStatus;
 import org.hibernate.stat.SessionStatistics;
 import org.hibernate.stat.internal.SessionStatisticsImpl;
 import org.hibernate.stat.spi.StatisticsImplementor;
 import org.hibernate.type.descriptor.WrapperOptions;
 
-import jakarta.persistence.CacheRetrieveMode;
-import jakarta.persistence.CacheStoreMode;
-import jakarta.persistence.EntityGraph;
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.FindOption;
-import jakarta.persistence.FlushModeType;
-import jakarta.persistence.LockModeType;
-import jakarta.persistence.LockOption;
-import jakarta.persistence.PersistenceException;
-import jakarta.persistence.RefreshOption;
-import jakarta.persistence.TransactionRequiredException;
-import jakarta.persistence.criteria.CriteriaSelect;
-import jakarta.persistence.metamodel.Metamodel;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serial;
+import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
+import java.util.function.UnaryOperator;
 
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Integer.parseInt;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Collections.unmodifiableMap;
 import static org.hibernate.CacheMode.fromJpaModes;
+import static org.hibernate.Timeouts.WAIT_FOREVER_MILLI;
 import static org.hibernate.cfg.AvailableSettings.CRITERIA_COPY_TREE;
 import static org.hibernate.cfg.AvailableSettings.DEFAULT_BATCH_FETCH_SIZE;
 import static org.hibernate.cfg.AvailableSettings.JAKARTA_LOCK_SCOPE;
@@ -191,6 +122,7 @@ import static org.hibernate.event.spi.LoadEventListener.IMMEDIATE_LOAD;
 import static org.hibernate.event.spi.LoadEventListener.INTERNAL_LOAD_EAGER;
 import static org.hibernate.event.spi.LoadEventListener.INTERNAL_LOAD_LAZY;
 import static org.hibernate.event.spi.LoadEventListener.INTERNAL_LOAD_NULLABLE;
+import static org.hibernate.internal.LockOptionsHelper.applyPropertiesToLockOptions;
 import static org.hibernate.jpa.HibernateHints.HINT_BATCH_FETCH_SIZE;
 import static org.hibernate.jpa.HibernateHints.HINT_ENABLE_SUBSELECT_FETCH;
 import static org.hibernate.jpa.HibernateHints.HINT_FETCH_PROFILE;
@@ -202,7 +134,6 @@ import static org.hibernate.jpa.LegacySpecHints.HINT_JAVAEE_QUERY_TIMEOUT;
 import static org.hibernate.jpa.SpecHints.HINT_SPEC_LOCK_TIMEOUT;
 import static org.hibernate.jpa.SpecHints.HINT_SPEC_QUERY_TIMEOUT;
 import static org.hibernate.jpa.internal.util.CacheModeHelper.interpretCacheMode;
-import static org.hibernate.internal.LockOptionsHelper.applyPropertiesToLockOptions;
 import static org.hibernate.jpa.internal.util.FlushModeTypeHelper.getFlushModeType;
 import static org.hibernate.pretty.MessageHelper.infoString;
 import static org.hibernate.proxy.HibernateProxy.extractLazyInitializer;
@@ -390,14 +321,18 @@ public class SessionImpl
 				HINT_JAVAEE_LOCK_TIMEOUT,
 				this::getSessionProperty,
 				// treat WAIT_FOREVER the same as null
-				value -> !Integer.valueOf( LockOptions.WAIT_FOREVER ).equals( value )
+				value -> !Integer.valueOf( WAIT_FOREVER_MILLI ).equals( value )
 		);
 	}
 
 	private Object getSessionProperty(String propertyName) {
 		return properties == null
-				? getSessionFactoryOptions().getDefaultSessionProperties().get( propertyName )
+				? getDefaultProperties().get( propertyName )
 				: properties.get( propertyName );
+	}
+
+	private Map<String, Object> getDefaultProperties() {
+		return getSessionFactoryOptions().getDefaultSessionProperties();
 	}
 
 	@Override
@@ -459,11 +394,16 @@ public class SessionImpl
 				checkSessionFactoryOpen();
 				checkOpenOrWaitingForAutoClose();
 				if ( getSessionFactoryOptions().isReleaseResourcesOnCloseEnabled()
-					|| !isTransactionInProgressAndNotMarkedForRollback() ) {
+						|| !isTransactionInProgressAndNotMarkedForRollback() ) {
 					super.close();
 				}
 				else {
-					//Otherwise, session auto-close will be enabled by shouldAutoCloseSession().
+					// In the JPA bootstrap, if the session is closed
+					// before the transaction commits, we just mark the
+					// session as closed, and set waitingForAutoClose.
+					// This method will be called a second time from
+					// afterTransactionCompletion when the transaction
+					// commits, and the session will be closed for real.
 					prepareForAutoClose();
 				}
 			}
@@ -486,14 +426,8 @@ public class SessionImpl
 	}
 
 	private boolean isTransactionInProgressAndNotMarkedForRollback() {
-		if ( waitingForAutoClose ) {
-			return getSessionFactory().isOpen()
-				&& isTransactionActiveAndNotMarkedForRollback();
-		}
-		else {
-			return !isClosed()
-				&& isTransactionActiveAndNotMarkedForRollback();
-		}
+		return isOpenOrWaitingForAutoClose()
+			&& isTransactionActiveAndNotMarkedForRollback();
 	}
 
 	private boolean isTransactionActiveAndNotMarkedForRollback() {
@@ -540,13 +474,13 @@ public class SessionImpl
 
 	protected void checkSessionFactoryOpen() {
 		if ( !getFactory().isOpen() ) {
-			log.debug( "Forcing-closing session since factory is already closed" );
+			log.trace( "Forcing-closing session since factory is already closed" );
 			setClosed();
 		}
 	}
 
 	private void managedFlush() {
-		if ( isClosed() && !waitingForAutoClose ) {
+		if ( !isOpenOrWaitingForAutoClose() ) {
 			log.trace( "Skipping auto-flush since the session is closed" );
 		}
 		else {
@@ -614,17 +548,14 @@ public class SessionImpl
 			}
 		}
 
-		final EntityEntry e = persistenceContext.getEntry( object );
-		if ( e == null ) {
-			throw new IllegalArgumentException( "Given entity is not associated with the persistence context" );
+		final EntityEntry entry = getEntityEntry( object );
+		if ( entry.getStatus().isDeletedOrGone() ) {
+			throw new ObjectDeletedException( "Given entity was removed", entry.getId(),
+					entry.getPersister().getEntityName() );
 		}
-
-		if ( e.getStatus().isDeletedOrGone() ) {
-			throw new ObjectDeletedException( "The given object was deleted", e.getId(),
-					e.getPersister().getEntityName() );
+		else {
+			return entry.getLockMode();
 		}
-
-		return e.getLockMode();
 	}
 
 	@Override
@@ -692,6 +623,11 @@ public class SessionImpl
 		final LockOptions lockOptions = copySessionLockOptions();
 		lockOptions.setLockMode( lockMode );
 		fireLock( new LockEvent( object, lockOptions, this ) );
+	}
+
+	@Override
+	public void lock(Object object, LockMode lockMode, LockOption... lockOptions) {
+		lock( object, buildLockOptions( lockMode, lockOptions ) );
 	}
 
 	private void fireLock(LockEvent event) {
@@ -785,7 +721,7 @@ public class SessionImpl
 			}
 		}
 		if ( originalException != null ) {
-			ExceptionHelper.doThrow( originalException );
+			ExceptionHelper.rethrow( originalException );
 		}
 	}
 
@@ -1080,7 +1016,7 @@ public class SessionImpl
 	public Object immediateLoad(String entityName, Object id) {
 		if ( log.isDebugEnabled() ) {
 			final EntityPersister persister = requireEntityPersister( entityName );
-			log.debugf( "Initializing proxy: %s", infoString( persister, id, getFactory() ) );
+			log.tracef( "Initializing proxy: %s", infoString( persister, id, getFactory() ) );
 		}
 		final LoadEvent event = makeLoadEvent( entityName, id, getReadOnlyFromLoadQueryInfluencers(), true );
 		fireLoadNoChecks( event, IMMEDIATE_LOAD );
@@ -1102,7 +1038,7 @@ public class SessionImpl
 			clearedEffectiveGraph = false;
 		}
 		else {
-			log.debug("Clearing effective entity graph for subsequent select");
+			log.trace( "Clearing effective entity graph for subsequent select" );
 			clearedEffectiveGraph = true;
 			effectiveEntityGraph.clear();
 		}
@@ -1233,22 +1169,22 @@ public class SessionImpl
 		}
 	}
 
-	@Override
+	@Override @Deprecated
 	public <T> T get(Class<T> entityClass, Object id, LockMode lockMode) {
 		return this.byId( entityClass ).with( new LockOptions( lockMode ) ).load( id );
 	}
 
-	@Override
-	public <T> T get(Class<T> entityClass, Object id, LockOptions lockOptions) {
-		return this.byId( entityClass ).with( lockOptions ).load( id );
-	}
-
-	@Override
+	@Override @Deprecated
 	public Object get(String entityName, Object id, LockMode lockMode) {
 		return this.byId( entityName ).with( new LockOptions( lockMode ) ).load( id );
 	}
 
-	@Override
+	@Override @Deprecated
+	public <T> T get(Class<T> entityClass, Object id, LockOptions lockOptions) {
+		return this.byId( entityClass ).with( lockOptions ).load( id );
+	}
+
+	@Override @Deprecated
 	public Object get(String entityName, Object id, LockOptions lockOptions) {
 		return this.byId( entityName ).with( lockOptions ).load( id );
 	}
@@ -1357,13 +1293,6 @@ public class SessionImpl
 	@Override
 	public void refresh(Object object) {
 		fireRefresh( new RefreshEvent( object, this ) );
-	}
-
-	@Override
-	public void refresh(Object object, LockMode lockMode) {
-		final LockOptions lockOptions = copySessionLockOptions();
-		lockOptions.setLockMode( lockMode );
-		fireRefresh( new RefreshEvent( object, lockOptions, this ) );
 	}
 
 	@Override
@@ -1548,8 +1477,8 @@ public class SessionImpl
 
 	@Override
 	public void forceFlush(EntityKey key) {
-		if ( log.isDebugEnabled() ) {
-			log.debugf("Flushing to force deletion of re-saved object: "
+		if ( log.isTraceEnabled() ) {
+			log.tracef("Flushing to force deletion of re-saved object: "
 					+ infoString( key.getPersister(), key.getIdentifier(), getFactory() ) );
 		}
 
@@ -1592,21 +1521,30 @@ public class SessionImpl
 			return requireEntityPersister( guessEntityName( object ) );
 		}
 		else {
-			// try block is a hack around fact that currently tuplizers are not
-			// given the opportunity to resolve a subclass entity name.  this
-			// allows the (we assume custom) interceptor the ability to
+			// try block is a hack around fact that currently tuplizers are
+			// not given the opportunity to resolve a subclass entity name.
+			// This allows the (we assume custom) interceptor the ability to
 			// influence this decision if we were not able to based on the
 			// given entityName
 			try {
 				return requireEntityPersister( entityName )
 						.getSubclassEntityPersister( object, getFactory() );
 			}
-			catch ( HibernateException e ) {
+			catch ( UnknownEntityTypeException uee ) {
 				try {
 					return getEntityPersister( null, object );
 				}
-				catch ( HibernateException e2 ) {
-					throw e;
+				catch ( HibernateException e ) {
+					final Class<?> objectClass = object.getClass();
+					final String problem =
+							objectClass.isAnnotationPresent( Entity.class )
+									? "does not belong to this persistence unit"
+									: "is not annotated '@Entity'";
+					throw new UnknownEntityTypeException(
+							uee.getMessage()
+								+ " ('" + objectClass.getSimpleName() + "' " + problem + ")",
+							e
+					);
 				}
 			}
 		}
@@ -1617,19 +1555,16 @@ public class SessionImpl
 	public Object getIdentifier(Object object) {
 		checkOpen();
 		checkTransactionSynchStatus();
+		if ( object == null ) {
+			throw new IllegalArgumentException( "Entity may not be null" );
+		}
 		final LazyInitializer lazyInitializer = extractLazyInitializer( object );
 		if ( lazyInitializer != null ) {
-			if ( lazyInitializer.getSession() != this ) {
-				throw new IllegalArgumentException( "Given proxy is not associated with the persistence context" );
-			}
+			checkOwnsProxy( lazyInitializer );
 			return lazyInitializer.getInternalIdentifier();
 		}
 		else {
-			final EntityEntry entry = persistenceContext.getEntry( object );
-			if ( entry == null ) {
-				throw new IllegalArgumentException( "Given entity is not associated with the persistence context" );
-			}
-			return entry.getId();
+			return getEntityEntry( object ).getId();
 		}
 	}
 
@@ -1821,7 +1756,7 @@ public class SessionImpl
 				return createCriteriaQuery( selectStatement, selectStatement.getResultType() );
 			}
 			catch (RuntimeException e) {
-				if ( getSessionFactory().getJpaMetamodel().getJpaCompliance().isJpaTransactionComplianceEnabled() ) {
+				if ( getSessionFactory().getSessionFactoryOptions().getJpaCompliance().isJpaTransactionComplianceEnabled() ) {
 					markForRollbackOnly();
 				}
 				throw getExceptionConverter().convert( e );
@@ -1876,19 +1811,32 @@ public class SessionImpl
 	public String getEntityName(Object object) {
 		checkOpen();
 //		checkTransactionSynchStatus();
+
+		if ( object == null ) {
+			throw new IllegalArgumentException( "Entity may not be null" );
+		}
+
 		final LazyInitializer lazyInitializer = extractLazyInitializer( object );
 		if ( lazyInitializer != null ) {
-			if ( !persistenceContext.containsProxy( object ) ) {
-				throw new IllegalArgumentException( "Given proxy is not associated with the persistence context" );
-			}
+			checkOwnsProxy( lazyInitializer );
 			object = lazyInitializer.getImplementation();
 		}
 
+		return getEntityEntry( object ).getPersister().getEntityName();
+	}
+
+	private void checkOwnsProxy(LazyInitializer lazyInitializer) {
+		if ( lazyInitializer.getSession() != this ) {
+			throw new IllegalArgumentException( "Given proxy is not associated with the persistence context" );
+		}
+	}
+
+	private EntityEntry getEntityEntry(Object object) {
 		final EntityEntry entry = persistenceContext.getEntry( object );
 		if ( entry == null ) {
 			throw new IllegalArgumentException( "Given entity is not associated with the persistence context" );
 		}
-		return entry.getPersister().getEntityName();
+		return entry;
 	}
 
 	@Override @SuppressWarnings("unchecked")
@@ -1896,7 +1844,7 @@ public class SessionImpl
 		checkOpen();
 		final LazyInitializer lazyInitializer = extractLazyInitializer( object );
 		if ( lazyInitializer != null ) {
-			return (T) getReference( lazyInitializer.getPersistentClass(), lazyInitializer.getIdentifier() );
+			return (T) getReference( lazyInitializer.getPersistentClass(), lazyInitializer.getInternalIdentifier() );
 		}
 		else {
 			final EntityPersister persister = getEntityPersister( null, object );
@@ -2072,13 +2020,8 @@ public class SessionImpl
 
 	@Override
 	public LobHelper getLobHelper() {
-		if ( lobHelper == null ) {
-			lobHelper = new LobHelperImpl();
-		}
-		return lobHelper;
+		return Hibernate.getLobHelper();
 	}
-
-	private transient LobHelperImpl lobHelper;
 
 	@Override
 	public void beforeTransactionCompletion() {
@@ -2095,7 +2038,7 @@ public class SessionImpl
 			log.tracef( "SessionImpl#afterTransactionCompletion(successful=%s, delayed=%s)", successful, delayed );
 		}
 
-		final boolean notClosed = !isClosed() || waitingForAutoClose;
+		final boolean notClosed = isOpenOrWaitingForAutoClose();
 
 		if ( notClosed && (!successful || autoClear) ) {
 			internalClear();
@@ -2111,45 +2054,6 @@ public class SessionImpl
 		}
 
 		super.afterTransactionCompletion( successful, delayed );
-	}
-
-	private static class LobHelperImpl implements LobHelper {
-
-		@Override
-		public Blob createBlob(byte[] bytes) {
-			return lobCreator().createBlob( bytes );
-		}
-
-		private LobCreator lobCreator() {
-			// Always use NonContextualLobCreator.  If ContextualLobCreator is
-			// used both here and in WrapperOptions,
-			return NonContextualLobCreator.INSTANCE;
-		}
-
-		@Override
-		public Blob createBlob(InputStream stream, long length) {
-			return lobCreator().createBlob( stream, length );
-		}
-
-		@Override
-		public Clob createClob(String string) {
-			return lobCreator().createClob( string );
-		}
-
-		@Override
-		public Clob createClob(Reader reader, long length) {
-			return lobCreator().createClob( reader, length );
-		}
-
-		@Override
-		public NClob createNClob(String string) {
-			return lobCreator().createNClob( string );
-		}
-
-		@Override
-		public NClob createNClob(Reader reader, long length) {
-			return lobCreator().createNClob( reader, length );
-		}
 	}
 
 	private static class SharedSessionBuilderImpl
@@ -2479,20 +2383,6 @@ public class SessionImpl
 	}
 
 	@Override
-	public <T> T find(Class<T> entityType, Object id, LockMode lockMode) {
-		checkTransactionNeededForLock( lockMode );
-		final LockOptions lockOptions = copySessionLockOptions();
-		lockOptions.setLockMode( lockMode );
-		return find( entityType, id, lockOptions, null );
-	}
-
-	@Override
-	public <T> T find(Class<T> entityType, Object id, LockOptions lockOptions) {
-		checkTransactionNeededForLock( lockOptions.getLockMode() );
-		return find( entityType, id, lockOptions, null );
-	}
-
-	@Override
 	public <T> T find(Class<T> entityClass, Object primaryKey, LockModeType lockModeType, Map<String, Object> properties) {
 		checkOpen();
 		if ( lockModeType == null ) {
@@ -2599,17 +2489,31 @@ public class SessionImpl
 			else if ( option instanceof LockOptions lockOpts ) {
 				lockOptions = lockOpts;
 			}
+			else if ( option instanceof Locking.Scope lockScope ) {
+				lockOptions.setScope( lockScope );
+			}
 			else if ( option instanceof PessimisticLockScope pessimisticLockScope ) {
-				lockOptions.setLockScope( pessimisticLockScope );
+				lockOptions.setScope( Locking.Scope.fromJpaScope( pessimisticLockScope ) );
+			}
+			else if ( option instanceof Locking.FollowOn followOn ) {
+				lockOptions.setFollowOnStrategy( followOn );
 			}
 			else if ( option instanceof Timeout timeout ) {
-				lockOptions.setTimeOut( timeout.milliseconds() );
+				lockOptions.setTimeout( timeout );
 			}
 			else if ( option instanceof EnabledFetchProfile enabledFetchProfile ) {
 				loadAccess.enableFetchProfile( enabledFetchProfile.profileName() );
 			}
 			else if ( option instanceof ReadOnlyMode ) {
 				loadAccess.withReadOnly( option == ReadOnlyMode.READ_ONLY );
+			}
+		}
+		if ( lockOptions.getLockMode().isPessimistic() ) {
+			if ( lockOptions.getTimeOut() == WAIT_FOREVER_MILLI ) {
+				final Object factoryHint = getFactory().getProperties().get( HINT_SPEC_LOCK_TIMEOUT );
+				if ( factoryHint != null ) {
+					lockOptions.setTimeOut( Timeouts.fromHint( factoryHint ) );
+				}
 			}
 		}
 		loadAccess.with( lockOptions ).with( interpretCacheMode( storeMode, retrieveMode ) );
@@ -2691,7 +2595,20 @@ public class SessionImpl
 	}
 
 	private void checkTransactionNeededForUpdateOperation() {
-		checkTransactionNeededForUpdateOperation( "no transaction is in progress" );
+		checkTransactionNeededForUpdateOperation( "No active transaction" );
+	}
+
+	@Override
+	public Object find(String entityName, Object primaryKey) {
+		final IdentifierLoadAccessImpl<Object> loadAccess = byId( entityName );
+		return loadAccess.load( primaryKey );
+	}
+
+	@Override
+	public Object find(String entityName, Object primaryKey, FindOption... options) {
+		final IdentifierLoadAccessImpl<Object> loadAccess = byId( entityName );
+		setLoadAccessOptions( options, loadAccess );
+		return loadAccess.load( primaryKey );
 	}
 
 	@Override
@@ -2852,11 +2769,16 @@ public class SessionImpl
 		checkOpen();
 
 		if ( !isTransactionInProgress() ) {
-			throw new TransactionRequiredException( "Call to EntityManager#getLockMode should occur within transaction according to spec" );
+			throw new TransactionRequiredException( "No active transaction" );
 		}
 
+		if ( entity == null ) {
+			throw new IllegalArgumentException( "Entity may not be null" );
+		}
 		if ( !contains( entity ) ) {
-			throw getExceptionConverter().convert( new IllegalArgumentException( "entity not in the persistence context" ) );
+			// convert() calls markForRollbackOnly()
+			throw getExceptionConverter()
+					.convert( new IllegalArgumentException( "Given entity is not associated with the persistence context" ) );
 		}
 
 		return LockModeTypeHelper.getLockModeType( getCurrentLockMode( entity ) );
@@ -2879,7 +2801,7 @@ public class SessionImpl
 
 		// store property for future reference:
 		if ( properties == null ) {
-			properties = computeCurrentSessionProperties();
+			properties = computeCurrentProperties();
 		}
 		properties.put( propertyName, value );
 
@@ -2947,18 +2869,18 @@ public class SessionImpl
 		}
 	}
 
-	private Map<String, Object> computeCurrentSessionProperties() {
-		final Map<String, Object> map = new HashMap<>( getSessionFactoryOptions().getDefaultSessionProperties() );
+	private Map<String, Object> computeCurrentProperties() {
+		final var map = new HashMap<>( getDefaultProperties() );
 		//The FLUSH_MODE is always set at Session creation time,
 		//so it needs special treatment to not eagerly initialize this Map:
-		map.put( HINT_FLUSH_MODE, getHibernateFlushMode().name() );
+		map.put( HINT_FLUSH_MODE, getHibernateFlushMode() );
 		return map;
 	}
 
 	@Override
 	public Map<String, Object> getProperties() {
 		if ( properties == null ) {
-			properties = computeCurrentSessionProperties();
+			properties = computeCurrentProperties();
 		}
 		return unmodifiableMap( properties );
 	}
@@ -3028,7 +2950,8 @@ public class SessionImpl
 			return type.cast( persistenceContext );
 		}
 
-		throw new PersistenceException( "Hibernate cannot unwrap EntityManager as '" + type.getName() + "'" );
+		throw new PersistenceException(
+				"Hibernate cannot unwrap '" + getClass().getName() + "' as '" + type.getName() + "'" );
 	}
 
 	@Override

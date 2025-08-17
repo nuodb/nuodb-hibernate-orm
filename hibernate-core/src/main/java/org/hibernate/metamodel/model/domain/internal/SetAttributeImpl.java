@@ -6,7 +6,6 @@ package org.hibernate.metamodel.model.domain.internal;
 
 import java.util.Set;
 
-import org.hibernate.metamodel.internal.MetadataContext;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.tree.SqmJoinType;
 import org.hibernate.query.sqm.tree.domain.SqmSetJoin;
@@ -20,8 +19,9 @@ import org.hibernate.query.sqm.tree.from.SqmFrom;
 public class SetAttributeImpl<X, E>
 		extends AbstractPluralAttribute<X, Set<E>, E>
 		implements SqmSetPersistentAttribute<X, E> {
-	public SetAttributeImpl(PluralAttributeBuilder<X, Set<E>, E, ?> xceBuilder, MetadataContext metadataContext) {
-		super( xceBuilder, metadataContext );
+
+	public SetAttributeImpl(PluralAttributeBuilder<X, Set<E>, E, ?> xceBuilder) {
+		super( xceBuilder );
 	}
 
 	@Override

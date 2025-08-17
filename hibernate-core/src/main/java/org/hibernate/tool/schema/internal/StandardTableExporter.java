@@ -33,6 +33,7 @@ import org.hibernate.tool.schema.spi.Exporter;
 import org.hibernate.type.SqlTypes;
 
 import static java.util.Collections.addAll;
+import static java.util.Comparator.comparing;
 import static org.hibernate.internal.util.StringHelper.EMPTY_STRINGS;
 import static org.hibernate.tool.schema.internal.ColumnDefinitions.appendColumn;
 
@@ -64,8 +65,26 @@ public class StandardTableExporter implements Exporter<Table> {
 			final String viewQuery = table.getViewQuery();
 			if ( viewQuery != null ) {
 				createTable.append("create view ")
-						.append( formattedTableName )
-						.append(" as ")
+						.append( formattedTableName );
+				if ( dialect.requiresColumnListInCreateView() ) {
+					createTable.append(" (");
+					var sortedColumns =
+							table.getColumns().stream()
+									.sorted( comparing( c -> viewQuery.indexOf( c.getQuotedName( dialect ) ) ) )
+									.toList();
+					boolean isFirst = true;
+					for ( Column column : sortedColumns ) {
+						if ( isFirst ) {
+							isFirst = false;
+						}
+						else {
+							createTable.append( ", " );
+						}
+						createTable.append( column.getQuotedName( dialect ) );
+					}
+					createTable.append(")");
+				}
+				createTable.append(" as ")
 						.append( viewQuery );
 			}
 			else {
@@ -178,6 +197,41 @@ public class StandardTableExporter implements Exporter<Table> {
 
 	protected void applyTableCheck(Table table, StringBuilder buf) {
 		if ( dialect.supportsTableCheck() ) {
+			if ( !dialect.supportsColumnCheck() ) {
+				for ( Column column : table.getColumns() ) {
+					// some databases (Maria, SQL Server) don't like multiple 'check' clauses
+					final List<CheckConstraint> checkConstraints = column.getCheckConstraints();
+					long anonConstraints = checkConstraints.stream().filter( CheckConstraint::isAnonymous ).count();
+					if ( anonConstraints == 1 ) {
+						for ( CheckConstraint constraint : checkConstraints ) {
+							buf.append( "," ).append( constraint.constraintString( dialect ) );
+						}
+					}
+					else {
+						boolean first = true;
+						for ( CheckConstraint constraint : checkConstraints ) {
+							if ( constraint.isAnonymous() ) {
+								if ( first ) {
+									buf.append( "," ).append( " check (" );
+									first = false;
+								}
+								else {
+									buf.append( " and " );
+								}
+								buf.append( constraint.getConstraintInParens() );
+							}
+						}
+						if ( !first ) {
+							buf.append( ")" );
+						}
+						for ( CheckConstraint constraint : checkConstraints ) {
+							if ( constraint.isNamed() ) {
+								buf.append( constraint.constraintString( dialect ) );
+							}
+						}
+					}
+				}
+			}
 			for ( CheckConstraint constraint : table.getChecks() ) {
 				buf.append( "," ).append( constraint.constraintString( dialect ) );
 			}

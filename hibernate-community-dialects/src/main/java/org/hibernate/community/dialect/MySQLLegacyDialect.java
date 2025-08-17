@@ -4,29 +4,39 @@
  */
 package org.hibernate.community.dialect;
 
-import java.sql.CallableStatement;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
-
-import org.hibernate.LockOptions;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
 import org.hibernate.PessimisticLockException;
+import org.hibernate.Timeouts;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.cfg.Environment;
-import org.hibernate.dialect.*;
+import org.hibernate.dialect.DatabaseVersion;
+import org.hibernate.dialect.Dialect;
+import org.hibernate.dialect.DmlTargetColumnQualifierSupport;
+import org.hibernate.dialect.FunctionalDependencyAnalysisSupport;
+import org.hibernate.dialect.FunctionalDependencyAnalysisSupportImpl;
+import org.hibernate.dialect.InnoDBStorageEngine;
+import org.hibernate.dialect.MyISAMStorageEngine;
+import org.hibernate.dialect.MySQLServerConfiguration;
+import org.hibernate.dialect.MySQLStorageEngine;
+import org.hibernate.dialect.NullOrdering;
+import org.hibernate.dialect.Replacer;
+import org.hibernate.dialect.SelectItemReferenceStrategy;
 import org.hibernate.dialect.aggregate.AggregateSupport;
 import org.hibernate.dialect.aggregate.MySQLAggregateSupport;
 import org.hibernate.dialect.function.CommonFunctionFactory;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
 import org.hibernate.dialect.identity.MySQLIdentityColumnSupport;
+import org.hibernate.dialect.lock.internal.MySQLLockingSupport;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.LimitLimitHandler;
 import org.hibernate.dialect.sequence.NoSequenceSupport;
 import org.hibernate.dialect.sequence.SequenceSupport;
-import org.hibernate.dialect.temptable.TemporaryTable;
+import org.hibernate.dialect.temptable.MySQLLocalTemporaryTableStrategy;
 import org.hibernate.dialect.temptable.TemporaryTableKind;
+import org.hibernate.dialect.temptable.TemporaryTableStrategy;
 import org.hibernate.dialect.type.MySQLCastingJsonArrayJdbcTypeConstructor;
 import org.hibernate.dialect.type.MySQLCastingJsonJdbcType;
 import org.hibernate.engine.jdbc.Size;
@@ -46,15 +56,14 @@ import org.hibernate.internal.util.StringHelper;
 import org.hibernate.mapping.CheckConstraint;
 import org.hibernate.metamodel.mapping.EntityMappingType;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
+import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.CastType;
 import org.hibernate.query.sqm.IntervalType;
-import org.hibernate.dialect.NullOrdering;
-import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.function.SqmFunctionRegistry;
-import org.hibernate.query.sqm.mutation.spi.AfterUseAction;
-import org.hibernate.query.sqm.mutation.spi.BeforeUseAction;
 import org.hibernate.query.sqm.mutation.internal.temptable.LocalTemporaryTableInsertStrategy;
 import org.hibernate.query.sqm.mutation.internal.temptable.LocalTemporaryTableMutationStrategy;
+import org.hibernate.query.sqm.mutation.spi.AfterUseAction;
+import org.hibernate.query.sqm.mutation.spi.BeforeUseAction;
 import org.hibernate.query.sqm.mutation.spi.SqmMultiTableInsertStrategy;
 import org.hibernate.query.sqm.mutation.spi.SqmMultiTableMutationStrategy;
 import org.hibernate.query.sqm.produce.function.FunctionParameterType;
@@ -79,7 +88,11 @@ import org.hibernate.type.descriptor.sql.internal.NativeEnumDdlTypeImpl;
 import org.hibernate.type.descriptor.sql.internal.NativeOrdinalEnumDdlTypeImpl;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 
-import jakarta.persistence.TemporalType;
+import java.sql.CallableStatement;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
 
 import static org.hibernate.exception.spi.TemplatedViolatedConstraintNameExtractor.extractUsingTemplate;
 import static org.hibernate.type.SqlTypes.BIGINT;
@@ -144,6 +157,8 @@ public class MySQLLegacyDialect extends Dialect {
 
 	private final boolean noBackslashEscapesEnabled;
 
+	private final LockingSupport lockingSupport;
+
 	public MySQLLegacyDialect() {
 		this( DEFAULT_VERSION );
 	}
@@ -165,6 +180,8 @@ public class MySQLLegacyDialect extends Dialect {
 		maxVarcharLength = maxVarcharLength( getMySQLVersion(), bytesPerCharacter ); //conservative assumption
 		maxVarbinaryLength = maxVarbinaryLength( getMySQLVersion() );
 		noBackslashEscapesEnabled = noBackslashEscapes;
+
+		lockingSupport = buildLockingSupport();
 	}
 
 	public MySQLLegacyDialect(DialectResolutionInfo info) {
@@ -187,6 +204,10 @@ public class MySQLLegacyDialect extends Dialect {
 			}
 		}
 		return info.makeCopyOrDefault( DEFAULT_VERSION );
+	}
+
+	protected LockingSupport buildLockingSupport() {
+		return new MySQLLockingSupport( getMySQLVersion() );
 	}
 
 	@Override
@@ -1036,32 +1057,19 @@ public class MySQLLegacyDialect extends Dialect {
 	public SqmMultiTableMutationStrategy getFallbackSqmMutationStrategy(
 			EntityMappingType rootEntityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
-
-		return new LocalTemporaryTableMutationStrategy(
-				TemporaryTable.createIdTable(
-						rootEntityDescriptor,
-						basename -> TemporaryTable.ID_TABLE_PREFIX + basename,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+		return new LocalTemporaryTableMutationStrategy( rootEntityDescriptor, runtimeModelCreationContext );
 	}
 
 	@Override
 	public SqmMultiTableInsertStrategy getFallbackSqmInsertStrategy(
 			EntityMappingType rootEntityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
+		return new LocalTemporaryTableInsertStrategy( rootEntityDescriptor, runtimeModelCreationContext );
+	}
 
-		return new LocalTemporaryTableInsertStrategy(
-				TemporaryTable.createEntityTable(
-						rootEntityDescriptor,
-						name -> TemporaryTable.ENTITY_TABLE_PREFIX + name,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+	@Override
+	public TemporaryTableStrategy getLocalTemporaryTableStrategy() {
+		return MySQLLocalTemporaryTableStrategy.INSTANCE;
 	}
 
 	@Override
@@ -1071,22 +1079,22 @@ public class MySQLLegacyDialect extends Dialect {
 
 	@Override
 	public String getTemporaryTableCreateCommand() {
-		return "create temporary table if not exists";
+		return MySQLLocalTemporaryTableStrategy.INSTANCE.getTemporaryTableCreateCommand();
 	}
 
 	@Override
 	public String getTemporaryTableDropCommand() {
-		return "drop temporary table";
+		return MySQLLocalTemporaryTableStrategy.INSTANCE.getTemporaryTableDropCommand();
 	}
 
 	@Override
 	public AfterUseAction getTemporaryTableAfterUseAction() {
-		return AfterUseAction.DROP;
+		return MySQLLocalTemporaryTableStrategy.INSTANCE.getTemporaryTableAfterUseAction();
 	}
 
 	@Override
 	public BeforeUseAction getTemporaryTableBeforeUseAction() {
-		return BeforeUseAction.CREATE;
+		return MySQLLocalTemporaryTableStrategy.INSTANCE.getTemporaryTableBeforeUseAction();
 	}
 
 	@Override
@@ -1148,12 +1156,8 @@ public class MySQLLegacyDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsLockTimeouts() {
-		// yes, we do handle "lock timeout" conditions in the exception conversion delegate,
-		// but that's a hardcoded lock timeout period across the whole entire MySQL database.
-		// MySQL does not support specifying lock timeouts as part of the SQL statement, which is really
-		// what this meta method is asking.
-		return false;
+	public LockingSupport getLockingSupport() {
+		return lockingSupport;
 	}
 
 	@Override
@@ -1188,15 +1192,15 @@ public class MySQLLegacyDialect extends Dialect {
 	}
 
 	@Override
-	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData dbMetaData)
+	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData metadata)
 			throws SQLException {
 
-		if ( dbMetaData == null ) {
+		if ( metadata == null ) {
 			builder.setUnquotedCaseStrategy( IdentifierCaseStrategy.MIXED );
 			builder.setQuotedCaseStrategy( IdentifierCaseStrategy.MIXED );
 		}
 
-		return super.buildIdentifierHelper( builder, dbMetaData );
+		return super.buildIdentifierHelper( builder, metadata );
 	}
 
 	@Override
@@ -1326,12 +1330,47 @@ public class MySQLLegacyDialect extends Dialect {
 				.replace("S", "%f");
 	}
 
+	private String withTimeout(String lockString, Timeout timeout) {
+		return switch ( timeout.milliseconds() ) {
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			case Timeouts.WAIT_FOREVER_MILLI -> lockString;
+			default -> supportsWait() ? lockString + " wait " + Timeouts.getTimeoutInSeconds( timeout ) : lockString;
+		};
+	}
+
+	@Override
+	public String getWriteLockString(Timeout timeout) {
+		return withTimeout( getForUpdateString(), timeout );
+	}
+
+	@Override
+	public String getWriteLockString(String aliases, Timeout timeout) {
+		return withTimeout( getForUpdateString( aliases ), timeout );
+	}
+
+	@Override
+	public String getReadLockString(Timeout timeout) {
+		return withTimeout( supportsForShare() ? " for share" : " lock in share mode", timeout );
+	}
+
+	@Override
+	public String getReadLockString(String aliases, Timeout timeout) {
+		if ( supportsAliasLocks() && supportsForShare() ) {
+			return withTimeout( " for share of " + aliases, timeout );
+		}
+		else {
+			// fall back to locking all aliases
+			return getReadLockString( timeout );
+		}
+	}
+
 	private String withTimeout(String lockString, int timeout) {
 		return switch ( timeout ) {
-			case LockOptions.NO_WAIT -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case LockOptions.SKIP_LOCKED -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
-			case LockOptions.WAIT_FOREVER -> lockString;
-			default -> supportsWait() ? lockString + " wait " + getTimeoutInSeconds( timeout ) : lockString;
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			case Timeouts.WAIT_FOREVER_MILLI -> lockString;
+			default -> supportsWait() ? lockString + " wait " + Timeouts.getTimeoutInSeconds( timeout ) : lockString;
 		};
 	}
 
@@ -1417,27 +1456,6 @@ public class MySQLLegacyDialect extends Dialect {
 	@Override
 	public boolean supportsRecursiveCTE() {
 		return getMySQLVersion().isSameOrAfter( 8, 0, 14 );
-	}
-
-	@Override
-	public boolean supportsSkipLocked() {
-		return getMySQLVersion().isSameOrAfter( 8 );
-	}
-
-	@Override
-	public boolean supportsNoWait() {
-		return getMySQLVersion().isSameOrAfter( 8 );
-	}
-
-	@Override
-	public boolean supportsWait() {
-		//only supported on MariaDB
-		return false;
-	}
-
-	@Override
-	public RowLockStrategy getWriteRowLockStrategy() {
-		return supportsAliasLocks() ? RowLockStrategy.TABLE : RowLockStrategy.NONE;
 	}
 
 	@Override

@@ -16,7 +16,6 @@ plugins {
     id "org.hibernate.orm.database-service"
     id "org.hibernate.orm.build.java-module"
 
-    id "jacoco"
     id "build-dashboard"
     id "project-report"
 }
@@ -48,6 +47,9 @@ dependencies {
     compileOnly libs.loggingAnnotations
     // Used for compiling some Oracle specific JdbcTypes
     compileOnly jdbcLibs.oracle
+    compileOnly (jdbcLibs.oracleJdbcJacksonOsonExtension) {
+        exclude group: 'com.oracle.database.jdbc', module: 'ojdbc8'
+    }
 
     // JUnit dependencies made up of:
     // 		* JUnit 5
@@ -70,10 +72,13 @@ dependencies {
     testRuntimeOnly jdbcLibs.derbyTools
     testRuntimeOnly jdbcLibs.hsqldb
     testRuntimeOnly jdbcLibs.postgresql
+    testRuntimeOnly jdbcLibs.edb
     testRuntimeOnly jdbcLibs.mssql
     testRuntimeOnly jdbcLibs.informix
     testRuntimeOnly jdbcLibs.cockroachdb
+    testRuntimeOnly jdbcLibs.gaussdb
     testRuntimeOnly jdbcLibs.sybase
+    testRuntimeOnly jdbcLibs.teradata
     testRuntimeOnly rootProject.fileTree(dir: 'drivers', include: '*.jar')
 
     // Since both the DB2 driver and HANA have a package "net.jpountz" we have to add dependencies conditionally
@@ -98,6 +103,9 @@ dependencies {
         testRuntimeOnly jdbcLibs.oracle
         testRuntimeOnly jdbcLibs.oracleXml
         testRuntimeOnly jdbcLibs.oracleXmlParser
+        testRuntimeOnly (jdbcLibs.oracleJdbcJacksonOsonExtension) {
+            exclude group: 'com.oracle.database.jdbc', module: 'ojdbc8'
+        }
     }
     else if ( db.startsWith( 'altibase' ) ) {
         testRuntimeOnly jdbcLibs.altibase

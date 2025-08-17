@@ -6,12 +6,13 @@ package org.hibernate.query.sqm.tree.expression;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.hibernate.query.criteria.JpaSearchedCase;
 import org.hibernate.query.internal.QueryHelper;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.predicate.SqmPredicate;
@@ -31,7 +32,7 @@ public class SqmCaseSearched<R>
 		this( null, nodeBuilder );
 	}
 
-	public SqmCaseSearched(SqmExpressible<R> inherentType, NodeBuilder nodeBuilder) {
+	public SqmCaseSearched(SqmBindableType<R> inherentType, NodeBuilder nodeBuilder) {
 		this( inherentType, 10, nodeBuilder );
 	}
 
@@ -39,7 +40,7 @@ public class SqmCaseSearched<R>
 		this( null, estimatedWhenSize, nodeBuilder );
 	}
 
-	private SqmCaseSearched(SqmExpressible<R> inherentType, int estimatedWhenSize, NodeBuilder nodeBuilder) {
+	private SqmCaseSearched(SqmBindableType<R> inherentType, int estimatedWhenSize, NodeBuilder nodeBuilder) {
 		super( inherentType, nodeBuilder );
 		this.whenFragments = new ArrayList<>( estimatedWhenSize );
 	}
@@ -89,10 +90,10 @@ public class SqmCaseSearched<R>
 		return this;
 	}
 
-	private void applyInferableResultType(SqmExpressible<?> type) {
+	private void applyInferableResultType(SqmBindableType<?> type) {
 		if ( type != null ) {
-			final SqmExpressible<?> oldType = getExpressible();
-			final SqmExpressible<?> newType = QueryHelper.highestPrecedenceType2( oldType, type );
+			final SqmBindableType<?> oldType = getExpressible();
+			final SqmBindableType<?> newType = QueryHelper.highestPrecedenceType2( oldType, type );
 			if ( newType != null && newType != oldType ) {
 				internalApplyInferableType( newType );
 			}
@@ -100,7 +101,7 @@ public class SqmCaseSearched<R>
 	}
 
 	@Override
-	protected void internalApplyInferableType(SqmExpressible<?> newType) {
+	protected void internalApplyInferableType(SqmBindableType<?> newType) {
 		super.internalApplyInferableType( newType );
 
 		if ( otherwise != null ) {
@@ -157,6 +158,17 @@ public class SqmCaseSearched<R>
 		hql.append( " end" );
 	}
 
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmCaseSearched<?> that
+			&& Objects.equals( this.whenFragments, that.whenFragments )
+			&& Objects.equals( this.otherwise, that.otherwise );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( whenFragments, otherwise );
+	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// JPA

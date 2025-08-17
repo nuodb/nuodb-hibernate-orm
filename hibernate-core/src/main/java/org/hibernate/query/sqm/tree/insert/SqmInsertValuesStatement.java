@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.hibernate.query.criteria.JpaConflictClause;
 import org.hibernate.query.criteria.JpaCriteriaInsertValues;
@@ -25,10 +25,8 @@ import org.hibernate.query.sqm.tree.cte.SqmCteStatement;
 import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.hibernate.query.sqm.tree.expression.SqmExpression;
 import org.hibernate.query.sqm.tree.expression.SqmParameter;
-import org.hibernate.query.sqm.tree.expression.ValueBindJpaCriteriaParameter;
 import org.hibernate.query.sqm.tree.from.SqmRoot;
 
-import jakarta.persistence.criteria.ParameterExpression;
 import jakarta.persistence.criteria.Subquery;
 import jakarta.persistence.metamodel.EntityType;
 
@@ -49,7 +47,7 @@ public class SqmInsertValuesStatement<T> extends AbstractSqmInsertStatement<T> i
 		super(
 				new SqmRoot<>(
 						nodeBuilder.getDomainModel().entity( targetEntity ),
-						null,
+						"_0",
 						false,
 						nodeBuilder
 				),
@@ -155,19 +153,6 @@ public class SqmInsertValuesStatement<T> extends AbstractSqmInsertStatement<T> i
 	}
 
 	@Override
-	public Set<ParameterExpression<?>> getParameters() {
-		// At this level, the number of parameters may still be growing as
-		// nodes are added to the Criteria - so we re-calculate this every
-		// time.
-		//
-		// for a "finalized" set of parameters, use `#resolveParameters` instead
-		assert getQuerySource() == SqmQuerySource.CRITERIA;
-		return getSqmParameters().stream()
-				.filter( parameterExpression -> !( parameterExpression instanceof ValueBindJpaCriteriaParameter ) )
-				.collect( Collectors.toSet() );
-	}
-
-	@Override
 	public SqmInsertValuesStatement<T> setInsertionTargetPaths(Path<?>... insertionTargetPaths) {
 		super.setInsertionTargetPaths( insertionTargetPaths );
 		return this;
@@ -208,7 +193,7 @@ public class SqmInsertValuesStatement<T> extends AbstractSqmInsertStatement<T> i
 			appendValues( valuesList.get( i ), hql, context );
 		}
 		hql.append( ')' );
-		final SqmConflictClause conflictClause = getConflictClause();
+		final SqmConflictClause<?> conflictClause = getConflictClause();
 		if ( conflictClause != null ) {
 			conflictClause.appendHqlString( hql, context );
 		}
@@ -223,5 +208,22 @@ public class SqmInsertValuesStatement<T> extends AbstractSqmInsertStatement<T> i
 			expressions.get( i ).appendHqlString( sb, context );
 		}
 		sb.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		if ( !(object instanceof SqmInsertValuesStatement<?> that) ) {
+			return false;
+		}
+		return Objects.equals( valuesList, that.valuesList )
+			&& Objects.equals( this.getTarget(), that.getTarget() )
+			&& Objects.equals( this.getInsertionTargetPaths(), that.getInsertionTargetPaths() )
+			&& Objects.equals( this.getConflictClause(), that.getConflictClause() )
+			&& Objects.equals( this.getCteStatements(), that.getCteStatements() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( valuesList, getTarget(), getInsertionTargetPaths(), getConflictClause(), getCteStatements() );
 	}
 }

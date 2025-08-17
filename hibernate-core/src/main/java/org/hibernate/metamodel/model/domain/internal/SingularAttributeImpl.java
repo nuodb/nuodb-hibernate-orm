@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.lang.reflect.Member;
 
 import org.hibernate.metamodel.AttributeClassification;
-import org.hibernate.metamodel.internal.MetadataContext;
 import org.hibernate.metamodel.mapping.CollectionPart;
 import org.hibernate.metamodel.model.domain.AnyMappingDomainType;
 import org.hibernate.metamodel.model.domain.IdentifiableDomainType;
@@ -17,6 +16,7 @@ import org.hibernate.metamodel.model.domain.PluralPersistentAttribute;
 import org.hibernate.metamodel.model.domain.SimpleDomainType;
 import org.hibernate.query.SemanticException;
 import org.hibernate.query.sqm.NodeBuilder;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.internal.SqmMappingModelHelper;
@@ -62,8 +62,7 @@ public class SingularAttributeImpl<D,J>
 			boolean isIdentifier,
 			boolean isVersion,
 			boolean isOptional,
-			boolean isGeneric,
-			MetadataContext metadataContext) {
+			boolean isGeneric) {
 		super(
 				declaringType,
 				name,
@@ -120,7 +119,8 @@ public class SingularAttributeImpl<D,J>
 
 	@Override
 	public Class<J> getBindableJavaType() {
-		return getJavaType();
+//		return getJavaType();
+		return sqmPathSource.getBindableJavaType();
 	}
 
 	@Override
@@ -136,6 +136,11 @@ public class SingularAttributeImpl<D,J>
 	@Override
 	public SqmPathSource<J> getSqmPathSource() {
 		return sqmPathSource;
+	}
+
+	@Override
+	public SqmBindableType<J> getExpressible() {
+		return sqmPathSource.getExpressible();
 	}
 
 	@Override
@@ -203,8 +208,7 @@ public class SingularAttributeImpl<D,J>
 				SqmDomainType<J> attributeType,
 				Member member,
 				AttributeClassification attributeClassification,
-				boolean isGeneric,
-				MetadataContext metadataContext) {
+				boolean isGeneric) {
 			super(
 					declaringType,
 					name,
@@ -215,8 +219,7 @@ public class SingularAttributeImpl<D,J>
 					true,
 					false,
 					false,
-					isGeneric,
-					metadataContext
+					isGeneric
 			);
 		}
 
@@ -253,8 +256,7 @@ public class SingularAttributeImpl<D,J>
 				String name,
 				AttributeClassification attributeClassification,
 				SqmDomainType<Y> attributeType,
-				Member member,
-				MetadataContext metadataContext) {
+				Member member) {
 			super(
 					declaringType,
 					name,
@@ -265,8 +267,7 @@ public class SingularAttributeImpl<D,J>
 					false,
 					true,
 					false,
-					false,
-					metadataContext
+					false
 			);
 		}
 	}
@@ -288,8 +289,9 @@ public class SingularAttributeImpl<D,J>
 
 	@Override
 	public boolean isAssociation() {
-		return getPersistentAttributeType() == PersistentAttributeType.MANY_TO_ONE
-			|| getPersistentAttributeType() == PersistentAttributeType.ONE_TO_ONE;
+		final PersistentAttributeType persistentAttributeType = getPersistentAttributeType();
+		return persistentAttributeType == PersistentAttributeType.MANY_TO_ONE
+			|| persistentAttributeType == PersistentAttributeType.ONE_TO_ONE;
 	}
 
 	@Override

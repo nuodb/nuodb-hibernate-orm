@@ -49,6 +49,8 @@ import org.hibernate.stat.spi.StatisticsImplementor;
 
 import org.jboss.logging.Logger;
 
+import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
+
 import static java.lang.Integer.parseInt;
 import static org.hibernate.cfg.AvailableSettings.CONNECTION_HANDLING;
 import static org.hibernate.cfg.AvailableSettings.DIALECT_DB_MAJOR_VERSION;
@@ -345,13 +347,11 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 				new SqlExceptionHelper( false ),
 				registry
 		);
-		temporaryJdbcSessionOwner.transactionCoordinator = registry.requireService( TransactionCoordinatorBuilder.class )
-				.buildTransactionCoordinator(
-						new JdbcCoordinatorImpl( null, temporaryJdbcSessionOwner, jdbcServices ),
-						() -> false
-				);
+		final JdbcCoordinatorImpl jdbcCoordinator = new JdbcCoordinatorImpl( null, temporaryJdbcSessionOwner, jdbcServices );
 
 		try {
+			temporaryJdbcSessionOwner.transactionCoordinator = registry.requireService( TransactionCoordinatorBuilder.class )
+					.buildTransactionCoordinator( jdbcCoordinator, () -> false );
 			return temporaryJdbcSessionOwner.transactionCoordinator.createIsolationDelegate().delegateWork(
 					new AbstractReturningWork<>() {
 						@Override
@@ -402,10 +402,11 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 							final String version = metadata.getDatabaseProductVersion();
 							final String prefix =
 									metadata.getDatabaseMajorVersion() + "." + metadata.getDatabaseMinorVersion() + ".";
-							if ( version.startsWith(prefix) ) {
+							final int versionIndex = version.indexOf( prefix );
+							if ( versionIndex >= 0 ) {
 								try {
-									final String substring = version.substring( prefix.length() );
-									final String micro = new StringTokenizer(substring," .,-:;/()[]").nextToken();
+									final String substring = version.substring( versionIndex + prefix.length() );
+									final String micro = new StringTokenizer( substring, " .,-:;/()[]" ).nextToken();
 									return parseInt(micro);
 								}
 								catch (NumberFormatException nfe) {
@@ -423,35 +424,30 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 		catch ( Exception e ) {
 			log.unableToObtainConnectionToQueryMetadata( e );
 		}
+		finally {
+			//noinspection resource
+			jdbcCoordinator.close();
+		}
 		// accessing the JDBC metadata failed
 		return getJdbcEnvironmentWithDefaults( configurationValues, registry, dialectFactory );
 	}
 
 	private static void logDatabaseAndDriver(DatabaseMetaData dbmd) throws SQLException {
 		if ( log.isDebugEnabled() ) {
-			log.debugf(
-					"Database ->\n"
-							+ "	   name : %s\n"
-							+ "	version : %s\n"
-							+ "	  major : %s\n"
-							+ "	  minor : %s",
+			JDBC_MESSAGE_LOGGER.logDatabaseInfo(
 					dbmd.getDatabaseProductName(),
 					dbmd.getDatabaseProductVersion(),
 					dbmd.getDatabaseMajorVersion(),
 					dbmd.getDatabaseMinorVersion()
 			);
-			log.debugf(
-					"Driver ->\n"
-							+ "	   name : %s\n"
-							+ "	version : %s\n"
-							+ "	  major : %s\n"
-							+ "	  minor : %s",
+			JDBC_MESSAGE_LOGGER.logDriverInfo(
 					dbmd.getDriverName(),
 					dbmd.getDriverVersion(),
 					dbmd.getDriverMajorVersion(),
-					dbmd.getDriverMinorVersion()
+					dbmd.getDriverMinorVersion(),
+					dbmd.getJDBCMajorVersion(),
+					dbmd.getJDBCMinorVersion()
 			);
-			log.debugf( "JDBC version : %s.%s", dbmd.getJDBCMajorVersion(), dbmd.getJDBCMinorVersion() );
 		}
 	}
 
@@ -804,6 +800,14 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 		@Override
 		public SqlExceptionHelper getSqlExceptionHelper() {
 			return sqlExceptionHelper;
+		}
+
+		@Override
+		public void afterObtainConnection(Connection connection) {
+		}
+
+		@Override
+		public void beforeReleaseConnection(Connection connection) {
 		}
 	}
 }

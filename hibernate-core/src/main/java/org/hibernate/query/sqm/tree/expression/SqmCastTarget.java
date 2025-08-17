@@ -9,11 +9,13 @@ import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.criteria.JpaCastTarget;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.AbstractSqmNode;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.SqmTypedNode;
+
+import java.util.Objects;
 
 
 /**
@@ -89,8 +91,8 @@ public class SqmCastTarget<T> extends AbstractSqmNode implements SqmTypedNode<T>
 	}
 
 	@Override
-	public SqmExpressible<T> getNodeType() {
-		return type.resolveExpressible( nodeBuilder() );
+	public SqmBindableType<T> getNodeType() {
+		return nodeBuilder().resolveExpressible( type );
 	}
 
 	@Override
@@ -110,5 +112,19 @@ public class SqmCastTarget<T> extends AbstractSqmNode implements SqmTypedNode<T>
 			hql.append( length );
 			hql.append( ')' );
 		}
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmCastTarget<?> that
+			&& Objects.equals( type, that.type )
+			&& Objects.equals( length, that.length )
+			&& Objects.equals( precision, that.precision )
+			&& Objects.equals( scale, that.scale );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( type, length, precision, scale );
 	}
 }

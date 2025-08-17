@@ -58,13 +58,7 @@ public class Namespace {
 		this.name = name;
 		this.physicalName = physicalName( name, physicalNamingStrategy, jdbcEnvironment );
 
-		if ( log.isDebugEnabled() ) {
-			log.debugf(
-					"Created database namespace [logicalName=%s, physicalName=%s]",
-					name.toString(),
-					physicalName.toString()
-			);
-		}
+		log.tracef( "Created database namespace [logicalName=%s, physicalName=%s]", name, physicalName );
 	}
 
 	private static Name physicalName(Name name, PhysicalNamingStrategy physicalNaming, JdbcEnvironment environment) {

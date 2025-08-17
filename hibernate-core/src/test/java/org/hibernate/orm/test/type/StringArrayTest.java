@@ -4,10 +4,12 @@
  */
 package org.hibernate.orm.test.type;
 
+import org.hibernate.community.dialect.InformixDialect;
 import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.HANADialect;
 import org.hibernate.dialect.HSQLDialect;
+import org.hibernate.dialect.MariaDBDialect;
 import org.hibernate.dialect.MySQLDialect;
 import org.hibernate.dialect.OracleDialect;
 import org.hibernate.dialect.SQLServerDialect;
@@ -100,6 +102,8 @@ public class StringArrayTest {
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = MariaDBDialect.class, majorVersion = 10, minorVersion = 6,
+			reason = "Bug in MariaDB https://jira.mariadb.org/browse/MDEV-21530")
 	public void testQuery(SessionFactoryScope scope) {
 		scope.inSession( em -> {
 			TypedQuery<TableWithStringArrays> tq = em.createNamedQuery( "TableWithStringArrays.Native.getById", TableWithStringArrays.class );
@@ -127,6 +131,7 @@ public class StringArrayTest {
 	@SkipForDialect(dialectClass = SybaseASEDialect.class, reason = "Sybase ASE requires a special function to compare XML")
 	@SkipForDialect(dialectClass = HANADialect.class, reason = "HANA requires a special function to compare LOBs")
 	@SkipForDialect(dialectClass = MySQLDialect.class, matchSubTypes = true, reason = "MySQL supports distinct from through a special operator")
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "Informix can't compare LOBs")
 	public void testNativeQuery(SessionFactoryScope scope) {
 		scope.inSession( em -> {
 			final Dialect dialect = em.getDialect();

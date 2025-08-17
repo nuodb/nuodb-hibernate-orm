@@ -235,7 +235,7 @@ public class MappingModelCreationHelper {
 		if ( declaringType instanceof EmbeddableMappingType embeddableMappingType ) {
 			if ( bootProperty.isLazy() ) {
 				MAPPING_MODEL_CREATION_MESSAGE_LOGGER.debugf(
-						"Attribute was declared lazy, but is part of an embeddable - `%s#%s` - LAZY will be ignored",
+						"Attribute was declared LAZY, but is part of embeddable '%s#%s', LAZY ignored",
 						declaringType.getNavigableRole().getFullPath(),
 						bootProperty.getName()
 				);
@@ -399,7 +399,7 @@ public class MappingModelCreationHelper {
 				getMutabilityPlan( bootProperty, attrType, creationProcess ),
 				bootProperty.getValue().isNullable(),
 				bootProperty.isInsertable(),
-				bootProperty.isUpdateable(),
+				bootProperty.isUpdatable(),
 				bootProperty.isOptimisticLocked(),
 				bootProperty.isSelectable(),
 				cascadeStyle
@@ -410,7 +410,7 @@ public class MappingModelCreationHelper {
 			Property bootProperty,
 			Type attrType,
 			MappingModelCreationProcess creationProcess) {
-		if ( bootProperty.isUpdateable() ) {
+		if ( bootProperty.isUpdatable() ) {
 			return new MutabilityPlan<>() {
 				final SessionFactoryImplementor sessionFactory =
 						creationProcess.getCreationContext().getSessionFactory();
@@ -653,7 +653,7 @@ public class MappingModelCreationHelper {
 				ImmutableMutabilityPlan.instance(),
 				bootProperty.isOptional(),
 				bootProperty.isInsertable(),
-				bootProperty.isUpdateable(),
+				bootProperty.isUpdatable(),
 				bootProperty.isOptimisticLocked(),
 				bootProperty.isSelectable(),
 				cascadeStyle
@@ -950,6 +950,7 @@ public class MappingModelCreationHelper {
 						( (PropertyBasedMapping) simpleFkTarget ).getPropertyAccess()
 				);
 			}
+			final SelectablePath parentSelectablePath = getSelectablePath( attributeMapping.getDeclaringType() );
 			final SelectableMapping keySelectableMapping;
 			int i = 0;
 			final Value value = bootProperty.getValue();
@@ -957,6 +958,7 @@ public class MappingModelCreationHelper {
 				keySelectableMapping = SelectableMappingImpl.from(
 						tableExpression,
 						columnIterator.next(),
+						parentSelectablePath,
 						simpleFkTarget.getJdbcMapping(),
 						creationProcess.getCreationContext().getTypeConfiguration(),
 						value.isColumnInsertable( i ),
@@ -973,6 +975,7 @@ public class MappingModelCreationHelper {
 				keySelectableMapping = SelectableMappingImpl.from(
 						tableExpression,
 						table.getPrimaryKey().getColumn( 0 ),
+						parentSelectablePath,
 						simpleFkTarget.getJdbcMapping(),
 						creationProcess.getCreationContext().getTypeConfiguration(),
 						value.isColumnInsertable( 0 ),
@@ -1104,6 +1107,7 @@ public class MappingModelCreationHelper {
 			boolean[] updateable,
 			Dialect dialect,
 			MappingModelCreationProcess creationProcess) {
+		final SelectablePath parentSelectablePath = getSelectablePath( keyDeclaringType );
 		final boolean hasConstraint;
 		final SelectableMappings keySelectableMappings;
 		if ( bootValueMapping instanceof Collection collectionBootValueMapping ) {
@@ -1115,6 +1119,7 @@ public class MappingModelCreationHelper {
 					keyTableExpression,
 					collectionBootValueMapping.getKey(),
 					getPropertyOrder( bootValueMapping, creationProcess ),
+					parentSelectablePath,
 					creationProcess.getCreationContext().getMetadata(),
 					creationProcess.getCreationContext().getTypeConfiguration(),
 					insertable,
@@ -1139,6 +1144,7 @@ public class MappingModelCreationHelper {
 					keyTableExpression,
 					bootValueMapping,
 					getPropertyOrder( bootValueMapping, creationProcess ),
+					parentSelectablePath,
 					creationProcess.getCreationContext().getMetadata(),
 					creationProcess.getCreationContext().getTypeConfiguration(),
 					insertable,
@@ -1184,6 +1190,11 @@ public class MappingModelCreationHelper {
 					creationProcess
 			);
 		}
+	}
+
+	public static @Nullable SelectablePath getSelectablePath(ManagedMappingType type) {
+		return type instanceof EmbeddableMappingType embeddableType && embeddableType.getAggregateMapping() != null
+				? embeddableType.getAggregateMapping().getSelectablePath() : null;
 	}
 
 	public static int[] getPropertyOrder(Value bootValueMapping, MappingModelCreationProcess creationProcess) {
@@ -1547,9 +1558,9 @@ public class MappingModelCreationHelper {
 	}
 
 	public static Expression buildColumnReferenceExpression(
-			TableGroup tableGroup,
+			@Nullable TableGroup tableGroup,
 			ModelPart modelPart,
-			SqlExpressionResolver sqlExpressionResolver,
+			@Nullable SqlExpressionResolver sqlExpressionResolver,
 			SessionFactoryImplementor sessionFactory) {
 		final int jdbcTypeCount = modelPart.getJdbcTypeCount();
 		if ( modelPart instanceof EmbeddableValuedModelPart ) {
@@ -1850,9 +1861,9 @@ public class MappingModelCreationHelper {
 					|| value instanceof ManyToOne manyToOne && value.isNullable() && manyToOne.isIgnoreNotFound() ) {
 				fetchTiming = FetchTiming.IMMEDIATE;
 				if ( lazy ) {
-					if ( MAPPING_MODEL_CREATION_MESSAGE_LOGGER.isDebugEnabled() ) {
-						MAPPING_MODEL_CREATION_MESSAGE_LOGGER.debugf(
-								"Forcing FetchTiming.IMMEDIATE for to-one association : %s.%s",
+					if ( MAPPING_MODEL_CREATION_MESSAGE_LOGGER.isTraceEnabled() ) {
+						MAPPING_MODEL_CREATION_MESSAGE_LOGGER.tracef(
+								"Forcing FetchTiming.IMMEDIATE for to-one association: %s.%s",
 								declaringType.getNavigableRole(),
 								bootProperty.getName()
 						);

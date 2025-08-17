@@ -5,9 +5,11 @@
 package org.hibernate.dialect;
 
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.ScrollMode;
+import org.hibernate.Timeouts;
 import org.hibernate.boot.Metadata;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
@@ -19,13 +21,16 @@ import org.hibernate.dialect.function.CommonFunctionFactory;
 import org.hibernate.dialect.function.IntegralTimestampaddFunction;
 import org.hibernate.dialect.identity.HANAIdentityColumnSupport;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
+import org.hibernate.dialect.lock.internal.HANALockingSupport;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.LimitOffsetLimitHandler;
 import org.hibernate.dialect.sequence.HANASequenceSupport;
 import org.hibernate.dialect.sequence.SequenceSupport;
 import org.hibernate.dialect.sql.ast.HANASqlAstTranslator;
-import org.hibernate.dialect.temptable.TemporaryTable;
+import org.hibernate.dialect.temptable.HANAGlobalTemporaryTableStrategy;
 import org.hibernate.dialect.temptable.TemporaryTableKind;
+import org.hibernate.dialect.temptable.TemporaryTableStrategy;
 import org.hibernate.engine.config.spi.ConfigurationService;
 import org.hibernate.engine.config.spi.StandardConverters;
 import org.hibernate.engine.jdbc.BinaryStream;
@@ -52,9 +57,9 @@ import org.hibernate.metamodel.mapping.EntityMappingType;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.procedure.internal.StandardCallableStatementSupport;
 import org.hibernate.procedure.spi.CallableStatementSupport;
+import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.CastType;
 import org.hibernate.query.sqm.IntervalType;
-import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.mutation.internal.temptable.GlobalTemporaryTableInsertStrategy;
 import org.hibernate.query.sqm.mutation.internal.temptable.GlobalTemporaryTableMutationStrategy;
 import org.hibernate.query.sqm.mutation.spi.SqmMultiTableInsertStrategy;
@@ -104,6 +109,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.Serial;
 import java.io.StringReader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -430,7 +436,7 @@ public class HANADialect extends Dialect {
 
 	@Override
 	public void initializeFunctionRegistry(FunctionContributions functionContributions) {
-		super.initializeFunctionRegistry(functionContributions);
+		super.initializeFunctionRegistry( functionContributions );
 		final TypeConfiguration typeConfiguration = functionContributions.getTypeConfiguration();
 
 		functionContributions.getFunctionRegistry().registerBinaryTernaryPattern(
@@ -442,7 +448,7 @@ public class HANADialect extends Dialect {
 				typeConfiguration
 		).setArgumentListSignature("(pattern, string[, start])");
 
-		CommonFunctionFactory functionFactory = new CommonFunctionFactory(functionContributions);
+		final var functionFactory = new CommonFunctionFactory( functionContributions );
 
 		functionFactory.ceiling_ceil();
 		functionFactory.concat_pipeOperator();
@@ -647,8 +653,8 @@ public class HANADialect extends Dialect {
 	}
 
 	@Override
-	public RowLockStrategy getWriteRowLockStrategy() {
-		return RowLockStrategy.COLUMN;
+	public LockingSupport getLockingSupport() {
+		return HANALockingSupport.HANA_LOCKING_SUPPORT;
 	}
 
 	@Override
@@ -683,18 +689,17 @@ public class HANADialect extends Dialect {
 
 	@Override
 	public String getForUpdateString(final String aliases, final LockOptions lockOptions) {
-		LockMode lockMode = lockOptions.findGreatestLockMode();
-		lockOptions.setLockMode( lockMode );
+		final LockMode lockMode = lockOptions.getLockMode();
 
 		// not sure why this is sometimes empty
 		if ( aliases == null || aliases.isEmpty() ) {
 			return getForUpdateString( lockOptions );
 		}
 
-		return getForUpdateString( aliases, lockMode, lockOptions.getTimeOut() );
+		return getForUpdateString( aliases, lockMode, lockOptions.getTimeout() );
 	}
 
-	private String getForUpdateString(String aliases, LockMode lockMode, int timeout) {
+	private String getForUpdateString(String aliases, LockMode lockMode, Timeout timeout) {
 		return switch ( lockMode ) {
 			case PESSIMISTIC_READ -> getReadLockString( aliases, timeout );
 			case PESSIMISTIC_WRITE -> getWriteLockString( aliases, timeout );
@@ -885,16 +890,6 @@ public class HANADialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsTableCheck() {
-		return true;
-	}
-
-	@Override
-	public boolean supportsTupleDistinctCounts() {
-		return true;
-	}
-
-	@Override
 	public boolean dropConstraints() {
 		return false;
 	}
@@ -925,7 +920,7 @@ public class HANADialect extends Dialect {
 	}
 
 	@Override
-	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData dbMetaData)
+	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData metadata)
 			throws SQLException {
 		/*
 		 * HANA-specific extensions
@@ -933,7 +928,7 @@ public class HANADialect extends Dialect {
 		builder.setQuotedCaseStrategy( IdentifierCaseStrategy.MIXED );
 		builder.setUnquotedCaseStrategy( IdentifierCaseStrategy.UPPER );
 
-		final IdentifierHelper identifierHelper = super.buildIdentifierHelper( builder, dbMetaData );
+		final IdentifierHelper identifierHelper = super.buildIdentifierHelper( builder, metadata );
 
 		return new IdentifierHelper() {
 
@@ -974,7 +969,7 @@ public class HANADialect extends Dialect {
 
 				// need to quote names containing special characters like ':'
 				if ( !normalizedIdentifier.isQuoted() && !normalizedIdentifier.getText().matches( "\\w+" ) ) {
-					normalizedIdentifier = Identifier.quote( normalizedIdentifier );
+					normalizedIdentifier = normalizedIdentifier.quoted();
 				}
 
 				return normalizedIdentifier;
@@ -1003,6 +998,42 @@ public class HANADialect extends Dialect {
 	}
 
 	@Override
+	public String getReadLockString(Timeout timeout) {
+		return getWriteLockString( timeout );
+	}
+
+	@Override
+	public String getReadLockString(String aliases, Timeout timeout) {
+		return getWriteLockString( aliases, timeout );
+	}
+
+	@Override
+	public String getWriteLockString(Timeout timeout) {
+		if ( Timeouts.isRealTimeout( timeout ) ) {
+			return getForUpdateString() + " wait " + Timeouts.getTimeoutInSeconds( timeout.milliseconds() );
+		}
+		else if ( timeout.milliseconds() == Timeouts.NO_WAIT_MILLI ) {
+			return getForUpdateNowaitString();
+		}
+		else {
+			return getForUpdateString();
+		}
+	}
+
+	@Override
+	public String getWriteLockString(String aliases, Timeout timeout) {
+		if ( Timeouts.isRealTimeout( timeout ) ) {
+			return getForUpdateString( aliases ) + " wait " + getTimeoutInSeconds( timeout.milliseconds() );
+		}
+		else if ( timeout.milliseconds() == Timeouts.NO_WAIT_MILLI ) {
+			return getForUpdateNowaitString( aliases );
+		}
+		else {
+			return getForUpdateString( aliases );
+		}
+	}
+
+	@Override
 	public String getReadLockString(int timeout) {
 		return getWriteLockString( timeout );
 	}
@@ -1017,7 +1048,7 @@ public class HANADialect extends Dialect {
 		if ( timeout > 0 ) {
 			return getForUpdateString() + " wait " + getTimeoutInSeconds( timeout );
 		}
-		else if ( timeout == 0 ) {
+		else if ( timeout == Timeouts.NO_WAIT_MILLI ) {
 			return getForUpdateNowaitString();
 		}
 		else {
@@ -1155,11 +1186,6 @@ public class HANADialect extends Dialect {
 
 	@Override
 	public boolean supportsLateral() {
-		return true;
-	}
-
-	@Override
-	public boolean supportsNoWait() {
 		return true;
 	}
 
@@ -1375,17 +1401,17 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public long length() throws SQLException {
+		public long length() {
 			return this.getBytes().length;
 		}
 
 		@Override
-		public byte[] getBytes(long pos, int length) throws SQLException {
+		public byte[] getBytes(long pos, int length) {
 			return Arrays.copyOfRange( this.bytes, (int) ( pos - 1 ), (int) ( pos - 1 + length ) );
 		}
 
 		@Override
-		public InputStream getBinaryStream() throws SQLException {
+		public InputStream getBinaryStream() {
 			return new ByteArrayInputStream( this.getBytes() );
 		}
 
@@ -1400,7 +1426,7 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public int setBytes(long pos, byte[] bytes) throws SQLException {
+		public int setBytes(long pos, byte[] bytes) {
 			int bytesSet = 0;
 			if ( this.bytes.length < pos - 1 + bytes.length ) {
 				this.bytes = Arrays.copyOf( this.bytes, (int) ( pos - 1 + bytes.length ) );
@@ -1412,7 +1438,7 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public int setBytes(long pos, byte[] bytes, int offset, int len) throws SQLException {
+		public int setBytes(long pos, byte[] bytes, int offset, int len) {
 			int bytesSet = 0;
 			if ( this.bytes.length < pos - 1 + len ) {
 				this.bytes = Arrays.copyOf( this.bytes, (int) ( pos - 1 + len ) );
@@ -1434,17 +1460,17 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public void truncate(long len) throws SQLException {
+		public void truncate(long len) {
 			this.setBytes( Arrays.copyOf( this.getBytes(), (int) len ) );
 		}
 
 		@Override
-		public void free() throws SQLException {
+		public void free() {
 			this.setBytes( null );
 		}
 
 		@Override
-		public InputStream getBinaryStream(long pos, long length) throws SQLException {
+		public InputStream getBinaryStream(long pos, long length) {
 			return new ByteArrayInputStream( this.getBytes(), (int) ( pos - 1 ), (int) length );
 		}
 
@@ -1467,19 +1493,19 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public void truncate(long len) throws SQLException {
+		public void truncate(long len) {
 			this.data = "";
 		}
 
 		@Override
-		public int setString(long pos, String str, int offset, int len) throws SQLException {
+		public int setString(long pos, String str, int offset, int len) {
 			this.data = this.data.substring( 0, (int) ( pos - 1 ) ) + str.substring( offset, offset + len )
 					+ this.data.substring( (int) ( pos - 1 + len ) );
 			return len;
 		}
 
 		@Override
-		public int setString(long pos, String str) throws SQLException {
+		public int setString(long pos, String str) {
 			this.data = this.data.substring( 0, (int) ( pos - 1 ) ) + str + this.data.substring( (int) ( pos - 1 + str.length() ) );
 			return str.length();
 		}
@@ -1495,32 +1521,32 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public long position(Clob searchstr, long start) throws SQLException {
+		public long position(Clob searchstr, long start) {
 			return this.data.indexOf( extractString( searchstr ), (int) ( start - 1 ) );
 		}
 
 		@Override
-		public long position(String searchstr, long start) throws SQLException {
+		public long position(String searchstr, long start) {
 			return this.data.indexOf( searchstr, (int) ( start - 1 ) );
 		}
 
 		@Override
-		public long length() throws SQLException {
+		public long length() {
 			return this.data.length();
 		}
 
 		@Override
-		public String getSubString(long pos, int length) throws SQLException {
+		public String getSubString(long pos, int length) {
 			return this.data.substring( (int) ( pos - 1 ), (int) ( pos - 1 + length ) );
 		}
 
 		@Override
-		public Reader getCharacterStream(long pos, long length) throws SQLException {
+		public Reader getCharacterStream(long pos, long length) {
 			return new StringReader( this.data.substring( (int) ( pos - 1 ), (int) ( pos - 1 + length ) ) );
 		}
 
 		@Override
-		public Reader getCharacterStream() throws SQLException {
+		public Reader getCharacterStream() {
 			return new StringReader( this.data );
 		}
 
@@ -1530,7 +1556,7 @@ public class HANADialect extends Dialect {
 		}
 
 		@Override
-		public void free() throws SQLException {
+		public void free() {
 			this.data = null;
 		}
 	}
@@ -1578,6 +1604,7 @@ public class HANADialect extends Dialect {
 
 	private static class HANAStreamBlobType implements JdbcType {
 
+		@Serial
 		private static final long serialVersionUID = -2476600722093442047L;
 
 		final int maxLobPrefetchSize;
@@ -1660,6 +1687,7 @@ public class HANADialect extends Dialect {
 		}
 
 		/** serial version uid. */
+		@Serial
 		private static final long serialVersionUID = -379042275442752102L;
 
 		final int maxLobPrefetchSize;
@@ -1763,6 +1791,7 @@ public class HANADialect extends Dialect {
 	private static class HANANClobJdbcType extends NClobJdbcType {
 
 		/** serial version uid. */
+		@Serial
 		private static final long serialVersionUID = 5651116091681647859L;
 
 		final int maxLobPrefetchSize;
@@ -1861,6 +1890,7 @@ public class HANADialect extends Dialect {
 
 	public static class HANABlobType implements JdbcType {
 
+		@Serial
 		private static final long serialVersionUID = 5874441715643764323L;
 		public static final JdbcType INSTANCE = new HANABlobType( MAX_LOB_PREFETCH_SIZE_DEFAULT_VALUE );
 
@@ -1934,30 +1964,14 @@ public class HANADialect extends Dialect {
 	public SqmMultiTableMutationStrategy getFallbackSqmMutationStrategy(
 			EntityMappingType entityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
-		return new GlobalTemporaryTableMutationStrategy(
-				TemporaryTable.createIdTable(
-						entityDescriptor,
-						basename -> TemporaryTable.ID_TABLE_PREFIX + basename,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+		return new GlobalTemporaryTableMutationStrategy( entityDescriptor, runtimeModelCreationContext );
 	}
 
 	@Override
 	public SqmMultiTableInsertStrategy getFallbackSqmInsertStrategy(
 			EntityMappingType entityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
-		return new GlobalTemporaryTableInsertStrategy(
-				TemporaryTable.createEntityTable(
-						entityDescriptor,
-						name -> TemporaryTable.ENTITY_TABLE_PREFIX + name,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+		return new GlobalTemporaryTableInsertStrategy( entityDescriptor, runtimeModelCreationContext );
 	}
 
 	@Override
@@ -1966,29 +1980,28 @@ public class HANADialect extends Dialect {
 	}
 
 	@Override
+	public TemporaryTableStrategy getGlobalTemporaryTableStrategy() {
+		return HANAGlobalTemporaryTableStrategy.INSTANCE;
+	}
+
+	@Override
 	public String getTemporaryTableCreateOptions() {
-		return "on commit delete rows";
+		return HANAGlobalTemporaryTableStrategy.INSTANCE.getTemporaryTableCreateOptions();
 	}
 
 	@Override
 	public String getTemporaryTableCreateCommand() {
-		return "create global temporary row table";
+		return HANAGlobalTemporaryTableStrategy.INSTANCE.getTemporaryTableCreateCommand();
 	}
 
 	@Override
 	public String getTemporaryTableTruncateCommand() {
-		return "truncate table";
+		return HANAGlobalTemporaryTableStrategy.INSTANCE.getTemporaryTableTruncateCommand();
 	}
 
 	@Override
 	public DmlTargetColumnQualifierSupport getDmlTargetColumnQualifierSupport() {
 		return DmlTargetColumnQualifierSupport.TABLE_ALIAS;
-	}
-
-	@Override
-	public boolean supportsSkipLocked() {
-		// HANA supports IGNORE LOCKED since HANA 2.0 SPS3 (2.0.030)
-		return true;
 	}
 
 	@Override

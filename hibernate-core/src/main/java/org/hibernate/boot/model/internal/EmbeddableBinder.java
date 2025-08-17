@@ -352,15 +352,15 @@ public class EmbeddableBinder {
 		final PropertyBinder binder = new PropertyBinder();
 		binder.setDeclaringClass( inferredData.getDeclaringClass() );
 		binder.setName( inferredData.getPropertyName() );
-		binder.setValue(component);
+		binder.setValue( component );
 		binder.setMemberDetails( inferredData.getAttributeMember() );
 		binder.setAccessType( inferredData.getDefaultAccess() );
-		binder.setEmbedded(isComponentEmbedded);
-		binder.setHolder(propertyHolder);
-		binder.setId(isId);
-		binder.setEntityBinder(entityBinder);
-		binder.setInheritanceStatePerClass(inheritanceStatePerClass);
-		binder.setBuildingContext(context);
+		binder.setEmbedded( isComponentEmbedded );
+		binder.setHolder( propertyHolder );
+		binder.setId( isId );
+		binder.setEntityBinder( entityBinder );
+		binder.setInheritanceStatePerClass( inheritanceStatePerClass );
+		binder.setBuildingContext( context );
 		binder.makePropertyAndBind();
 		return binder;
 	}
@@ -452,8 +452,8 @@ public class EmbeddableBinder {
 		);
 
 		final String subpath = getPath( propertyHolder, inferredData );
-		if ( LOG.isDebugEnabled() ) {
-			LOG.debug( "Binding component with path: " + subpath );
+		if ( LOG.isTraceEnabled() ) {
+			LOG.trace( "Binding embeddable with path: " + subpath );
 		}
 		final PropertyHolder subholder = buildPropertyHolder(
 				component,

@@ -8,6 +8,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import jakarta.persistence.criteria.ParameterExpression;
 import org.hibernate.AssertionFailure;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
@@ -55,6 +57,7 @@ import org.hibernate.query.spi.QueryParameterBinding;
 import org.hibernate.query.spi.QueryParameterBindings;
 import org.hibernate.query.spi.QueryParameterImplementor;
 import org.hibernate.query.sqm.NodeBuilder;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.SqmQuerySource;
@@ -73,6 +76,7 @@ import org.hibernate.query.sqm.tree.expression.SqmExpression;
 import org.hibernate.query.sqm.tree.expression.SqmJpaCriteriaParameterWrapper;
 import org.hibernate.query.sqm.tree.expression.SqmParameter;
 import org.hibernate.query.sqm.tree.expression.SqmTuple;
+import org.hibernate.query.sqm.tree.expression.ValueBindJpaCriteriaParameter;
 import org.hibernate.query.sqm.tree.from.SqmAttributeJoin;
 import org.hibernate.query.sqm.tree.from.SqmFrom;
 import org.hibernate.query.sqm.tree.from.SqmJoin;
@@ -111,6 +115,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static java.util.Collections.singleton;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 import static org.hibernate.internal.util.NullnessUtil.castNonNull;
 import static org.hibernate.internal.util.collections.CollectionHelper.arrayList;
@@ -684,9 +690,8 @@ public class SqmUtil {
 		if ( domainParamBinding.getType() instanceof JdbcMapping mapping ) {
 			return mapping;
 		}
-		// TODO: why do the test and the cast disagree here? getBindType() vs getType()
 		else if ( domainParamBinding.getBindType() instanceof BasicValuedMapping ) {
-			return ( (BasicValuedMapping) domainParamBinding.getType() ).getJdbcMapping();
+			return ( (BasicValuedMapping) domainParamBinding.getBindType() ).getJdbcMapping();
 		}
 		else {
 			return null;
@@ -936,7 +941,7 @@ public class SqmUtil {
 		else if ( selection != null && selection.getSelectableNode() instanceof SqmParameter<?> sqmParameter ) {
 			final Class<?> anticipatedClass =
 					sqmParameter.getAnticipatedType() != null
-							? sqmParameter.getAnticipatedType().getBindableJavaType()
+							? sqmParameter.getAnticipatedType().getJavaType()
 							: null;
 			return anticipatedClass != null
 				&& expectedResultType.isAssignableFrom( anticipatedClass );
@@ -1218,10 +1223,18 @@ public class SqmUtil {
 		}
 
 		if ( !jpaCompliance.isJpaQueryComplianceEnabled() ) {
-			verifyResultType( expectedResultClass, selection.getExpressible() );
+			verifyResultType( expectedResultClass, selection );
 		}
 	}
 
+	/**
+	 * Any query result can be represented as a {@link Tuple}, {@link List}, or {@link Map},
+	 * simply by repackaging the result tuple. Also, any query result is assignable to
+	 * {@code Object}, or can be returned as an instance of {@code Object[]}.
+	 *
+	 * @see ConcreteSqmSelectQueryPlan#determineRowTransformer
+	 * @see org.hibernate.query.sql.internal.NativeQueryImpl#determineTupleTransformerForResultType
+	 */
 	public static boolean isResultTypeAlwaysAllowed(Class<?> expectedResultClass) {
 		return expectedResultClass == null
 			|| expectedResultClass == Object.class
@@ -1231,15 +1244,17 @@ public class SqmUtil {
 			|| expectedResultClass == Tuple.class;
 	}
 
-	protected static void verifyResultType(Class<?> resultClass, @Nullable SqmExpressible<?> selectionExpressible) {
-		if ( selectionExpressible != null ) {
-			final JavaType<?> javaType = selectionExpressible.getExpressibleJavaType();
-			if ( javaType != null ) {
-				final Class<?> javaTypeClass = javaType.getJavaTypeClass();
-				if ( javaTypeClass != Object.class ) {
-					if ( !isValid( resultClass, selectionExpressible, javaTypeClass, javaType ) ) {
-						throwQueryTypeMismatchException( resultClass, selectionExpressible );
-					}
+	protected static void verifyResultType(Class<?> resultClass, SqmSelectableNode<?> selectableNode) {
+		final SqmBindableType<?> selectionExpressible = selectableNode.getExpressible();
+		final JavaType<?> javaType =
+				selectionExpressible == null
+						? selectableNode.getNodeJavaType() // for SqmDynamicInstantiation
+						: selectionExpressible.getExpressibleJavaType();
+		if ( javaType != null ) {
+			final Class<?> javaTypeClass = javaType.getJavaTypeClass();
+			if ( javaTypeClass != Object.class ) {
+				if ( !isValid( resultClass, selectionExpressible, javaTypeClass, javaType ) ) {
+					throwQueryTypeMismatchException( resultClass, selectionExpressible, javaTypeClass );
 				}
 			}
 		}
@@ -1259,10 +1274,10 @@ public class SqmUtil {
 
 	private static boolean isEntityIdType(SqmExpressible<?> selectionExpressible, Class<?> resultClass) {
 		if ( selectionExpressible instanceof IdentifiableDomainType<?> identifiableDomainType ) {
-			return resultClass.isAssignableFrom( identifiableDomainType.getIdType().getBindableJavaType() );
+			return resultClass.isAssignableFrom( identifiableDomainType.getIdType().getJavaType() );
 		}
 		else if ( selectionExpressible instanceof EntitySqmPathSource<?> entityPath ) {
-			return resultClass.isAssignableFrom( entityPath.getPathType().getIdType().getBindableJavaType() );
+			return resultClass.isAssignableFrom( entityPath.getPathType().getIdType().getJavaType() );
 		}
 		else {
 			return false;
@@ -1305,12 +1320,37 @@ public class SqmUtil {
 		}
 	}
 
-	private static void throwQueryTypeMismatchException(Class<?> resultClass, SqmExpressible<?> sqmExpressible) {
+	private static void throwQueryTypeMismatchException(
+			Class<?> resultClass,
+			@Nullable SqmExpressible<?> sqmExpressible, @Nullable Class<?> javaTypeClass) {
 		throw new QueryTypeMismatchException( String.format(
 				Locale.ROOT,
 				"Incorrect query result type: query produces '%s' but type '%s' was given",
-				sqmExpressible.getTypeName(),
+				sqmExpressible == null ? javaTypeClass.getName() : sqmExpressible.getTypeName(),
 				resultClass.getName()
 		) );
+	}
+
+	public static Set<ParameterExpression<?>> getParameters(SqmStatement<?> statement) {
+		final Set<SqmParameter<?>> parameters = statement.getSqmParameters();
+		return switch ( parameters.size() ) {
+			case 0 -> emptySet();
+			case 1 -> {
+				final SqmParameter<?> parameter = parameters.iterator().next();
+				yield parameter instanceof ValueBindJpaCriteriaParameter
+						? emptySet()
+						: singleton( parameter );
+			}
+			default -> {
+				final Set<ParameterExpression<?>> parameterExpressions =
+						new HashSet<>( parameters.size() );
+				for ( SqmParameter<?> parameter : parameters ) {
+					if ( !(parameter instanceof ValueBindJpaCriteriaParameter) ) {
+						parameterExpressions.add( parameter );
+					}
+				}
+				yield unmodifiableSet( parameterExpressions );
+			}
+		};
 	}
 }

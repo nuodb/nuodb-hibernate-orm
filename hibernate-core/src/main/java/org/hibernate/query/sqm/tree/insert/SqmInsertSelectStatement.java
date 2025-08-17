@@ -6,8 +6,8 @@ package org.hibernate.query.sqm.tree.insert;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.hibernate.Incubating;
 import org.hibernate.query.criteria.JpaConflictClause;
@@ -21,7 +21,6 @@ import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.cte.SqmCteStatement;
 import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.hibernate.query.sqm.tree.expression.SqmParameter;
-import org.hibernate.query.sqm.tree.expression.ValueBindJpaCriteriaParameter;
 import org.hibernate.query.sqm.tree.from.SqmRoot;
 import org.hibernate.query.sqm.tree.select.SqmQueryPart;
 import org.hibernate.query.sqm.tree.select.SqmQuerySpec;
@@ -33,7 +32,6 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Path;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import jakarta.persistence.criteria.ParameterExpression;
 import jakarta.persistence.criteria.Subquery;
 import jakarta.persistence.metamodel.EntityType;
 
@@ -53,7 +51,7 @@ public class SqmInsertSelectStatement<T> extends AbstractSqmInsertStatement<T> i
 		super(
 				new SqmRoot<>(
 						nodeBuilder.getDomainModel().entity( targetEntity ),
-						null,
+						"_0",
 						false,
 						nodeBuilder
 				),
@@ -148,19 +146,6 @@ public class SqmInsertSelectStatement<T> extends AbstractSqmInsertStatement<T> i
 	}
 
 	@Override
-	public Set<ParameterExpression<?>> getParameters() {
-		// At this level, the number of parameters may still be growing as
-		// nodes are added to the Criteria - so we re-calculate this every
-		// time.
-		//
-		// for a "finalized" set of parameters, use `#resolveParameters` instead
-		assert getQuerySource() == SqmQuerySource.CRITERIA;
-		return getSqmParameters().stream()
-				.filter( parameterExpression -> !( parameterExpression instanceof ValueBindJpaCriteriaParameter ) )
-				.collect( Collectors.toSet() );
-	}
-
-	@Override
 	public SqmInsertSelectStatement<T> setInsertionTargetPaths(Path<?>... insertionTargetPaths) {
 		super.setInsertionTargetPaths( insertionTargetPaths );
 		return this;
@@ -187,5 +172,22 @@ public class SqmInsertSelectStatement<T> extends AbstractSqmInsertStatement<T> i
 		if ( conflictClause != null ) {
 			conflictClause.appendHqlString( hql, context );
 		}
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		if ( !(object instanceof SqmInsertSelectStatement<?> that) ) {
+			return false;
+		}
+		return Objects.equals( selectQueryPart, that.selectQueryPart )
+			&& Objects.equals( this.getTarget(), that.getTarget() )
+			&& Objects.equals( this.getInsertionTargetPaths(), that.getInsertionTargetPaths() )
+			&& Objects.equals( this.getConflictClause(), that.getConflictClause() )
+			&& Objects.equals( this.getCteStatements(), that.getCteStatements() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( selectQueryPart, getTarget(), getInsertionTargetPaths(), getConflictClause(), getCteStatements() );
 	}
 }

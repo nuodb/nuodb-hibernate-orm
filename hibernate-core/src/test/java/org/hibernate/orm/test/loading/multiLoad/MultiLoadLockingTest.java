@@ -4,28 +4,18 @@
  */
 package org.hibernate.orm.test.loading.multiLoad;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.function.Function;
-
+import jakarta.persistence.Basic;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.Version;
 import org.hibernate.LockMode;
-import org.hibernate.LockOptions;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.NaturalId;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.Dialect;
-import org.hibernate.dialect.PostgreSQLDialect;
-import org.hibernate.dialect.sql.ast.PostgreSQLSqlAstTranslator;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.sql.ast.tree.Statement;
 import org.hibernate.testing.jdbc.SQLStatementInspector;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.JiraKey;
@@ -37,11 +27,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import jakarta.persistence.Basic;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import java.io.Serializable;
+import java.util.List;
+import java.util.function.Function;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
+@SuppressWarnings("JUnitMalformedDeclaration")
 @DomainModel(
 		annotatedClasses = {
 			MultiLoadLockingTest.Customer.class,
@@ -146,7 +143,7 @@ public class MultiLoadLockingTest {
 
 	@AfterEach
 	public void tearDown(SessionFactoryScope scope) {
-		scope.inTransaction( session -> scope.getSessionFactory().getSchemaManager().truncate() );
+		scope.dropData();
 		scope.getSessionFactory().getCache().evictAll();
 	}
 
@@ -154,13 +151,15 @@ public class MultiLoadLockingTest {
 	// (1) simple Id entity w/ pessimistic read lock
 	@Test
 	void testMultiLoadSimpleIdEntityPessimisticReadLock(SessionFactoryScope scope) {
-		final LockOptions lockOptions = new LockOptions(LockMode.PESSIMISTIC_READ);
-		final String lockString = scope.getSessionFactory().getJdbcServices().getDialect().getForUpdateString(lockOptions);
+		final String lockString = scope.getSessionFactory()
+				.getJdbcServices()
+				.getDialect()
+				.getForUpdateString( LockMode.PESSIMISTIC_READ, -1 );
 
 		// test byMultipleIds
 		scope.inTransaction( session -> {
 			List<Customer> customersLoaded = session.byMultipleIds(Customer.class)
-					.with( lockOptions )
+					.with( LockMode.PESSIMISTIC_READ )
 					.multiLoad(customerIdsAsLongs);
 			assertNotNull(customersLoaded);
 			assertEquals(customerList.size(), customersLoaded.size());
@@ -178,7 +177,7 @@ public class MultiLoadLockingTest {
 		// test byMultipleNaturalId
 		scope.inTransaction( session -> {
 			List<Customer> customersLoaded = session.byMultipleNaturalId(Customer.class)
-					.with( lockOptions )
+					.with( LockMode.PESSIMISTIC_READ )
 					.multiLoad( customerNaturalIdsAsObjects );
 			assertNotNull(customersLoaded);
 			assertEquals(customerList.size(), customersLoaded.size());
@@ -190,8 +189,10 @@ public class MultiLoadLockingTest {
 	// (2) composite Id entity w/ pessimistic read lock (one of the entities already in L1C)
 	@Test
 	void testMultiLoadCompositeIdEntityPessimisticReadLockAlreadyInSession(SessionFactoryScope scope) {
-		final LockOptions lockOptions = new LockOptions(LockMode.PESSIMISTIC_READ);
-		final String lockString = scope.getSessionFactory().getJdbcServices().getDialect().getForUpdateString(lockOptions);
+		final String lockString = scope.getSessionFactory()
+				.getJdbcServices()
+				.getDialect()
+				.getForUpdateString( LockMode.PESSIMISTIC_READ, -1 );
 
 		scope.inTransaction( session -> {
 			EntityWithAggregateId entityInL1C = session
@@ -201,7 +202,7 @@ public class MultiLoadLockingTest {
 
 			// test byMultipleIds
 			List<EntityWithAggregateId> entitiesLoaded = session.byMultipleIds(EntityWithAggregateId.class)
-					.with( lockOptions )
+					.with( LockMode.PESSIMISTIC_READ )
 					.multiLoad(entityWithAggregateIdKeys);
 			assertNotNull(entitiesLoaded);
 			assertEquals(entityWithAggregateIdList.size(), entitiesLoaded.size());
@@ -229,8 +230,9 @@ public class MultiLoadLockingTest {
 			assertNotNull(entityInL1C);
 			sqlStatementInspector.clear();
 
-			List<EntityWithAggregateId> entitiesLoaded = session.byMultipleNaturalId(EntityWithAggregateId.class)
-					.with( lockOptions )
+			List<EntityWithAggregateId> entitiesLoaded = session
+					.byMultipleNaturalId( EntityWithAggregateId.class )
+					.with( LockMode.PESSIMISTIC_READ )
 					.multiLoad( entityWithAggregateIdNaturalIdsAsObjects );
 			assertNotNull(entitiesLoaded);
 			assertEquals(entityWithAggregateIdList.size(), entitiesLoaded.size());
@@ -245,16 +247,8 @@ public class MultiLoadLockingTest {
 	public void testMultiLoadSimpleIdEntityPessimisticWriteLockSomeInL1CAndSomeInL2C(SessionFactoryScope scope) {
 		final Integer userInL2CId = userIds.get(0);
 		final Integer userInL1CId = userIds.get(1);
-		final LockOptions lockOptions = new LockOptions(LockMode.PESSIMISTIC_WRITE);
 		Dialect dialect = scope.getSessionFactory().getJdbcServices().getDialect();
-		String lockString;
-		if ( PostgreSQLDialect.class.isAssignableFrom( dialect.getClass() ) ) {
-			PgSqlAstTranslatorExt translator = new PgSqlAstTranslatorExt( scope.getSessionFactory(), null );
-			lockString = translator.getForUpdate();
-		}
-		else  {
-			lockString = scope.getSessionFactory().getJdbcServices().getDialect().getForUpdateString(lockOptions);
-		}
+		String lockString = dialect.getForUpdateString(LockMode.PESSIMISTIC_WRITE, -1 );
 
 		scope.inTransaction( session -> {
 			User userInL2C = session.find(User.class, userInL2CId);
@@ -268,7 +262,7 @@ public class MultiLoadLockingTest {
 			sqlStatementInspector.clear();
 
 			List<User> usersLoaded = session.byMultipleIds(User.class)
-					.with( lockOptions )
+					.with( LockMode.PESSIMISTIC_WRITE )
 					.multiLoad(userIds);
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -294,7 +288,7 @@ public class MultiLoadLockingTest {
 			sqlStatementInspector.clear();
 
 			List<User> usersLoaded = session.byMultipleNaturalId(User.class)
-					.with( lockOptions )
+					.with( LockMode.PESSIMISTIC_WRITE )
 					.multiLoad( userNaturalIdsAsObjects );
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -310,7 +304,7 @@ public class MultiLoadLockingTest {
 		// test byMultipleIds
 		scope.inTransaction( session -> {
 			List<User> usersLoaded = session.byMultipleIds(User.class)
-					.with(new LockOptions(LockMode.OPTIMISTIC))
+					.with( LockMode.OPTIMISTIC )
 					.multiLoad(userIds);
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -326,7 +320,7 @@ public class MultiLoadLockingTest {
 		// test byMultipleNaturalId
 		scope.inTransaction( session -> {
 			List<User> usersLoaded = session.byMultipleNaturalId(User.class)
-					.with( new LockOptions(LockMode.OPTIMISTIC) )
+					.with( LockMode.OPTIMISTIC )
 					.multiLoad( userNaturalIdsAsObjects );
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -341,7 +335,7 @@ public class MultiLoadLockingTest {
 		// test byMultipleIds
 		scope.inTransaction( session -> {
 			List<User> usersLoaded = session.byMultipleIds(User.class)
-					.with(new LockOptions(LockMode.OPTIMISTIC_FORCE_INCREMENT))
+					.with( LockMode.OPTIMISTIC_FORCE_INCREMENT )
 					.multiLoad(userIds);
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -357,7 +351,7 @@ public class MultiLoadLockingTest {
 		// test byMultipleNaturalId
 		scope.inTransaction( session -> {
 			List<User> usersLoaded = session.byMultipleNaturalId(User.class)
-					.with( new LockOptions(LockMode.OPTIMISTIC_FORCE_INCREMENT) )
+					.with( LockMode.OPTIMISTIC_FORCE_INCREMENT )
 					.multiLoad( userNaturalIdsAsObjects );
 			assertNotNull(usersLoaded);
 			assertEquals(userList.size(), usersLoaded.size());
@@ -366,23 +360,11 @@ public class MultiLoadLockingTest {
 	}
 
 	private void checkStatement(int stmtCount, String lockString) {
-		assertEquals( stmtCount,sqlStatementInspector.getSqlQueries().size() );
+		assertEquals( stmtCount, sqlStatementInspector.getSqlQueries().size() );
 		for ( String stmt : sqlStatementInspector.getSqlQueries() ) {
-			assertTrue( stmt.contains( lockString ) );
+			assertThat( stmt, containsString( lockString ) );
 		}
 		sqlStatementInspector.clear();
-	}
-
-	// Ugly-ish hack to be able to access the PostgreSQLSqlAstTranslator.getForUpdate() method needed for testing the PostgreSQL dialects
-	private static class PgSqlAstTranslatorExt extends PostgreSQLSqlAstTranslator {
-		public PgSqlAstTranslatorExt(SessionFactoryImplementor sessionFactory, Statement statement) {
-			super( sessionFactory, statement );
-		}
-
-		@Override
-		protected String getForUpdate() {
-			return super.getForUpdate();
-		}
 	}
 
 	@Entity(name = "Customer")

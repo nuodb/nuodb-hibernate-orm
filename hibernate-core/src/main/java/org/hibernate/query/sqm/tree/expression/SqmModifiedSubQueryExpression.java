@@ -6,10 +6,12 @@ package org.hibernate.query.sqm.tree.expression;
 
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.select.SqmSubQuery;
+
+import java.util.Objects;
 
 /**
  * Represents a {@link Modifier#ALL}, {@link Modifier#ANY}, {@link Modifier#SOME} modifier applied to a subquery as
@@ -42,7 +44,7 @@ public class SqmModifiedSubQueryExpression<T> extends AbstractSqmExpression<T> {
 	public SqmModifiedSubQueryExpression(
 			SqmSubQuery<T> subQuery,
 			Modifier modifier,
-			SqmExpressible<T> resultType,
+			SqmBindableType<T> resultType,
 			NodeBuilder builder) {
 		super( resultType, builder );
 		this.subQuery = subQuery;
@@ -87,5 +89,17 @@ public class SqmModifiedSubQueryExpression<T> extends AbstractSqmExpression<T> {
 		hql.append( " (" );
 		subQuery.appendHqlString( hql, context );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmModifiedSubQueryExpression<?> that
+			&& modifier == that.modifier
+			&& Objects.equals( subQuery, that.subQuery );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( subQuery, modifier );
 	}
 }

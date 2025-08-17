@@ -4,14 +4,17 @@
  */
 package org.hibernate.query.sqm.tree.predicate;
 
+import org.hibernate.metamodel.model.domain.SimpleDomainType;
 import org.hibernate.query.SemanticException;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.domain.SqmPluralValuedSimplePath;
 import org.hibernate.query.sqm.tree.expression.SqmExpression;
+
+import java.util.Objects;
 
 import static org.hibernate.query.sqm.internal.TypecheckUtil.areTypesComparable;
 
@@ -36,9 +39,8 @@ public class SqmMemberOfPredicate extends AbstractNegatableSqmPredicate {
 		this.pluralPath = pluralPath;
 		this.leftHandExpression = leftHandExpression;
 
-		final SqmExpressible<?> simpleDomainType =
-				pluralPath.getPluralAttribute().getElementType()
-						.resolveExpressible( nodeBuilder );
+		final SimpleDomainType<?> elementType = pluralPath.getPluralAttribute().getElementType();
+		final SqmBindableType<?> simpleDomainType = nodeBuilder.resolveExpressible( elementType );
 
 		if ( !areTypesComparable( leftHandExpression.getNodeType(), simpleDomainType, nodeBuilder ) ) {
 			throw new SemanticException(
@@ -93,6 +95,19 @@ public class SqmMemberOfPredicate extends AbstractNegatableSqmPredicate {
 		}
 		hql.append( " member of " );
 		pluralPath.appendHqlString( hql, context );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmMemberOfPredicate that
+			&& this.isNegated() == that.isNegated()
+			&& Objects.equals( leftHandExpression, that.leftHandExpression )
+			&& Objects.equals( pluralPath, that.pluralPath );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( isNegated(), leftHandExpression, pluralPath );
 	}
 
 	@Override

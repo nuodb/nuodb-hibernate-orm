@@ -4,13 +4,7 @@
  */
 package org.hibernate.community.dialect;
 
-import java.sql.DatabaseMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.time.temporal.TemporalAccessor;
-import java.util.Date;
-import java.util.TimeZone;
-
+import jakarta.persistence.TemporalType;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.community.dialect.pagination.AltibaseLimitHandler;
@@ -25,6 +19,8 @@ import org.hibernate.dialect.NullOrdering;
 import org.hibernate.dialect.OracleDialect;
 import org.hibernate.dialect.function.CommonFunctionFactory;
 import org.hibernate.dialect.function.OracleTruncFunction;
+import org.hibernate.dialect.lock.internal.LockingSupportSimple;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.sequence.SequenceSupport;
 import org.hibernate.engine.jdbc.dialect.spi.DialectResolutionInfo;
@@ -36,9 +32,9 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.exception.LockTimeoutException;
 import org.hibernate.exception.spi.SQLExceptionConversionDelegate;
 import org.hibernate.internal.util.JdbcExceptionHelper;
+import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.CastType;
 import org.hibernate.query.sqm.IntervalType;
-import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.sqm.TrimSpec;
 import org.hibernate.query.sqm.produce.function.FunctionParameterType;
 import org.hibernate.query.sqm.produce.function.StandardFunctionArgumentTypeResolvers;
@@ -56,7 +52,12 @@ import org.hibernate.type.descriptor.sql.internal.CapacityDependentDdlType;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 import org.hibernate.type.spi.TypeConfiguration;
 
-import jakarta.persistence.TemporalType;
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.time.temporal.TemporalAccessor;
+import java.util.Date;
+import java.util.TimeZone;
 
 import static org.hibernate.type.SqlTypes.BINARY;
 import static org.hibernate.type.SqlTypes.BIT;
@@ -515,13 +516,13 @@ public class AltibaseDialect extends Dialect {
 	@Override
 	public IdentifierHelper buildIdentifierHelper(
 			IdentifierHelperBuilder builder,
-			DatabaseMetaData dbMetaData) throws SQLException {
+			DatabaseMetaData metadata) throws SQLException {
 		// Any use of keywords as identifiers will result in syntax error, so enable auto quote always
 		builder.setAutoQuoteKeywords( true );
 		builder.setAutoQuoteInitialUnderscore( false );
-		builder.applyReservedWords( dbMetaData );
+		builder.applyReservedWords( metadata );
 
-		return super.buildIdentifierHelper( builder, dbMetaData );
+		return super.buildIdentifierHelper( builder, metadata );
 	}
 
 	@Override
@@ -585,8 +586,12 @@ public class AltibaseDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsOuterJoinForUpdate() {
-		// "SELECT FOR UPDATE can only be used with a single-table SELECT statement"
+	public LockingSupport getLockingSupport() {
+		return LockingSupportSimple.NO_OUTER_JOIN;
+	}
+
+	@Override
+	public boolean supportsCrossJoin() {
 		return false;
 	}
 

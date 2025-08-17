@@ -32,12 +32,7 @@ public class NonPkCompositeJoinColumnCollectionTest {
 
 	@AfterEach
 	public void setUp(SessionFactoryScope scope) {
-		scope.inTransaction(
-				session -> {
-					session.createMutationQuery( "delete from Item" ).executeUpdate();
-					session.createMutationQuery( "delete from Order" ).executeUpdate();
-				}
-		);
+		scope.getSessionFactory().getSchemaManager().truncate();
 	}
 
 	@Test
@@ -65,8 +60,8 @@ public class NonPkCompositeJoinColumnCollectionTest {
 					Order order = new Order( "O1" );
 					Item item = new Item( "Item 1" );
 					order.addItem( item );
-					session.persist( item );
 					session.persist( order );
+					session.persist( item );
 				}
 		);
 	}

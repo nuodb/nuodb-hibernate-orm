@@ -6,7 +6,6 @@ package org.hibernate.metamodel.model.domain.internal;
 
 import java.util.List;
 
-import org.hibernate.metamodel.internal.MetadataContext;
 import org.hibernate.metamodel.mapping.CollectionPart;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.hql.spi.SqmCreationState;
@@ -25,8 +24,8 @@ public class ListAttributeImpl<X, E>
 		implements SqmListPersistentAttribute<X, E> {
 	private final SqmPathSource<Integer> indexPathSource;
 
-	public ListAttributeImpl(PluralAttributeBuilder<X, List<E>, E, ?> builder, MetadataContext metadataContext) {
-		super( builder, metadataContext );
+	public ListAttributeImpl(PluralAttributeBuilder<X, List<E>, E, ?> builder) {
+		super( builder );
 
 		//noinspection unchecked
 		this.indexPathSource = (SqmPathSource<Integer>) SqmMappingModelHelper.resolveSqmKeyPathSource(
@@ -62,16 +61,9 @@ public class ListAttributeImpl<X, E>
 
 	@Override
 	public SqmPathSource<?> findSubPathSource(String name, boolean includeSubtypes) {
-		final CollectionPart.Nature nature = CollectionPart.Nature.fromNameExact( name );
-		if ( nature != null ) {
-			switch ( nature ) {
-				case INDEX:
-					return indexPathSource;
-				case ELEMENT:
-					return getElementPathSource();
-			}
-		}
-		return getElementPathSource().findSubPathSource( name, includeSubtypes );
+		return CollectionPart.Nature.INDEX.getName().equals( name )
+				? indexPathSource
+				: super.findSubPathSource( name, includeSubtypes );
 	}
 
 	@Override

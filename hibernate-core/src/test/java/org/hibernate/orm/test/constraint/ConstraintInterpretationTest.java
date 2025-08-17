@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.community.dialect.InformixDialect;
 import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.H2Dialect;
 import org.hibernate.dialect.HSQLDialect;
@@ -44,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @RequiresDialect( SybaseASEDialect.class )
 @RequiresDialect( OracleDialect.class )
 @RequiresDialect( DB2Dialect.class )
+@RequiresDialect( InformixDialect.class )
 @SkipForDialect(dialectClass = MariaDBDialect.class) // Maria doesn't allow named column-level check constraints
 public class ConstraintInterpretationTest {
 	@Test void testNotNullPrimaryKey(EntityManagerFactoryScope scope) {
@@ -54,7 +56,7 @@ public class ConstraintInterpretationTest {
 			}
 			catch (ConstraintViolationException cve) {
 				assertEquals( ConstraintViolationException.ConstraintKind.NOT_NULL, cve.getKind() );
-				if ( !(scope.getDialect() instanceof DB2Dialect) ) {
+				if ( !(scope.getDialect() instanceof DB2Dialect) && !(scope.getDialect() instanceof InformixDialect) ) {
 					assertTrue( cve.getConstraintName().toLowerCase().endsWith( "id" ) );
 				}
 			}
@@ -109,7 +111,9 @@ public class ConstraintInterpretationTest {
 			}
 			catch (ConstraintViolationException cve) {
 				assertEquals( ConstraintViolationException.ConstraintKind.CHECK, cve.getKind() );
-				assertTrue( cve.getConstraintName().toLowerCase().endsWith( "namecheck" ) );
+				if ( !(scope.getDialect() instanceof InformixDialect) ) {
+					assertTrue( cve.getConstraintName().toLowerCase().endsWith( "namecheck" ) );
+				}
 			}
 		} );
 	}

@@ -9,33 +9,37 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.hibernate.AssertionFailure;
 import org.hibernate.Incubating;
 import org.hibernate.metamodel.UnsupportedMappingException;
 import org.hibernate.metamodel.mapping.CollectionPart;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.metamodel.mapping.SqlTypedMapping;
 import org.hibernate.metamodel.mapping.internal.SqlTypedMappingImpl;
+import org.hibernate.metamodel.model.domain.BasicDomainType;
 import org.hibernate.metamodel.model.domain.SimpleDomainType;
+import org.hibernate.query.sqm.SqmBindableType;
+import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.tree.domain.SqmDomainType;
+import org.hibernate.query.sqm.tree.domain.SqmPluralPersistentAttribute;
+import org.hibernate.query.sqm.tree.select.SqmSelectQuery;
+import org.hibernate.query.sqm.tree.select.SqmSelection;
 import org.hibernate.query.sqm.tuple.TupleType;
-import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.SemanticException;
 import org.hibernate.query.sqm.SqmExpressible;
-import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.tree.domain.SqmPath;
-import org.hibernate.query.sqm.tree.domain.SqmPluralPersistentAttribute;
 import org.hibernate.query.sqm.tree.select.SqmSelectClause;
 import org.hibernate.query.sqm.tree.select.SqmSelectableNode;
-import org.hibernate.query.sqm.tree.select.SqmSubQuery;
 import org.hibernate.spi.NavigablePath;
 import org.hibernate.sql.ast.spi.FromClauseAccess;
 import org.hibernate.sql.ast.spi.SqlSelection;
-import org.hibernate.type.BasicType;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.descriptor.java.ObjectArrayJavaType;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import static jakarta.persistence.metamodel.Bindable.BindableType.ENTITY_TYPE;
+import static jakarta.persistence.metamodel.Type.PersistenceType.ENTITY;
 import static org.hibernate.internal.util.collections.CollectionHelper.linkedMapOfSize;
 
 
@@ -43,34 +47,56 @@ import static org.hibernate.internal.util.collections.CollectionHelper.linkedMap
  * @author Christian Beikov
  */
 @Incubating
-public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, ReturnableType<T>, SqmPathSource<T> {
+public class AnonymousTupleType<T>
+		implements TupleType<T>, SqmDomainType<T>, SqmPathSource<T> {
 
 	private final JavaType<T> javaTypeDescriptor;
 	private final @Nullable NavigablePath[] componentSourcePaths;
-	private final SqmExpressible<?>[] expressibles;
+	private final SqmBindableType<?>[] expressibles;
 	private final String[] componentNames;
 	private final Map<String, Integer> componentIndexMap;
 
-	public AnonymousTupleType(SqmSubQuery<T> subQuery) {
-		this( extractSqmExpressibles( subQuery ) );
-	}
+	public AnonymousTupleType(SqmSelectQuery<T> selectQuery) {
+		final SqmSelectClause selectClause = selectQuery.getQueryPart()
+				.getFirstQuerySpec()
+				.getSelectClause();
 
-	public AnonymousTupleType(SqmSelectableNode<?>[] components) {
-		expressibles = new SqmExpressible<?>[components.length];
-		componentSourcePaths = new NavigablePath[components.length];
-		for ( int i = 0; i < components.length; i++ ) {
-			expressibles[i] = components[i].getNodeType();
-			if ( components[i] instanceof SqmPath<?> path ) {
-				componentSourcePaths[i] = path.getNavigablePath();
+		if ( selectClause == null || selectClause.getSelections().isEmpty() ) {
+			throw new IllegalArgumentException( "selectQuery has no selection items" );
+		}
+		// todo: right now, we "snapshot" the state of the selectQuery when creating this type, but maybe we shouldn't?
+		//  i.e. what if the selectQuery changes later on? Or should we somehow mark the selectQuery to signal,
+		//  that changes to the select clause are invalid after a certain point?
+
+		final List<SqmSelection<?>> selections = selectClause.getSelections();
+		final List<SqmSelectableNode<?>> selectableNodes = new ArrayList<>();
+		final List<String> aliases = new ArrayList<>();
+		for ( SqmSelection<?> selection : selections ) {
+			final boolean compound = selection.getSelectableNode().isCompoundSelection();
+			selection.getSelectableNode().visitSubSelectableNodes( node -> {
+				selectableNodes.add( node );
+				if ( compound ) {
+					aliases.add( node.getAlias() );
+				}
+			} );
+			if ( !compound ) {
+				// for compound selections we use the sub-selectable nodes aliases
+				aliases.add( selection.getAlias() );
 			}
 		}
-		componentNames = new String[components.length];
+
+		expressibles = new SqmBindableType<?>[selectableNodes.size()];
+		componentSourcePaths = new NavigablePath[selectableNodes.size()];
+		componentNames = new String[selectableNodes.size()];
 		//noinspection unchecked
-		javaTypeDescriptor = (JavaType<T>) new ObjectArrayJavaType( getTypeDescriptors( components ) );
-		componentIndexMap = linkedMapOfSize( components.length );
-		for ( int i = 0; i < components.length; i++ ) {
-			final SqmSelectableNode<?> component = components[i];
-			final String alias = component.getAlias();
+		javaTypeDescriptor = (JavaType<T>) new ObjectArrayJavaType( getTypeDescriptors( selectableNodes ) );
+		componentIndexMap = linkedMapOfSize( selectableNodes.size() );
+		for ( int i = 0; i < selectableNodes.size(); i++ ) {
+			expressibles[i] = selectableNodes.get( i ).getNodeType();
+			if ( selectableNodes.get( i ) instanceof SqmPath<?> path ) {
+				componentSourcePaths[i] = path.getNavigablePath();
+			}
+			String alias = aliases.get( i );
 			if ( alias == null ) {
 				throw new SemanticException( "Select item at position " + (i+1) + " in select list has no alias"
 						+ " (aliases are required in CTEs and in subqueries occurring in from clause)" );
@@ -80,7 +106,7 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 		}
 	}
 
-	public AnonymousTupleType(SqmExpressible<?>[] expressibles, String[] componentNames) {
+	public AnonymousTupleType(SqmBindableType<?>[] expressibles, String[] componentNames) {
 		this.expressibles = expressibles;
 		this.componentNames = componentNames;
 
@@ -106,21 +132,10 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 		return SqmDomainType.super.getTypeName();
 	}
 
-	private static SqmSelectableNode<?>[] extractSqmExpressibles(SqmSubQuery<?> subQuery) {
-		final SqmSelectClause selectClause = subQuery.getQuerySpec().getSelectClause();
-		if ( selectClause == null || selectClause.getSelectionItems().isEmpty() ) {
-			throw new IllegalArgumentException( "subquery has no selection items" );
-		}
-		// todo: right now, we "snapshot" the state of the subquery when creating this type, but maybe we shouldn't?
-		//  i.e. what if the subquery changes later on? Or should we somehow mark the subquery to signal,
-		//  that changes to the select clause are invalid after a certain point?
-		return selectClause.getSelectionItems().toArray( SqmSelectableNode[]::new );
-	}
-
-	private static JavaType<?>[] getTypeDescriptors(SqmSelectableNode<?>[] components) {
-		final JavaType<?>[] typeDescriptors = new JavaType<?>[components.length];
-		for ( int i = 0; i < components.length; i++ ) {
-			typeDescriptors[i] = components[i].getExpressible().getExpressibleJavaType();
+	private static JavaType<?>[] getTypeDescriptors(List<SqmSelectableNode<?>> components) {
+		final JavaType<?>[] typeDescriptors = new JavaType<?>[components.size()];
+		for ( int i = 0; i < components.size(); i++ ) {
+			typeDescriptors[i] = components.get( i ).getExpressible().getExpressibleJavaType();
 		}
 		return typeDescriptors;
 	}
@@ -137,12 +152,10 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 		final SqlTypedMapping[] jdbcMappings = new SqlTypedMapping[sqlSelections.size()];
 		for ( int i = 0; i < sqlSelections.size(); i++ ) {
 			final JdbcMappingContainer expressionType = sqlSelections.get( i ).getExpressionType();
-			if ( expressionType instanceof SqlTypedMapping sqlTypedMapping ) {
-				jdbcMappings[i] = sqlTypedMapping;
-			}
-			else {
-				jdbcMappings[i] = new SqlTypedMappingImpl( expressionType.getSingleJdbcMapping() );
-			}
+			jdbcMappings[i] =
+					expressionType instanceof SqlTypedMapping sqlTypedMapping
+							? sqlTypedMapping
+							: new SqlTypedMappingImpl( expressionType.getSingleJdbcMapping() );
 		}
 		return jdbcMappings;
 	}
@@ -176,12 +189,12 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 	}
 
 	@Override
-	public SqmExpressible<?> get(int index) {
+	public SqmBindableType<?> get(int index) {
 		return expressibles[index];
 	}
 
 	@Override
-	public SqmExpressible<?> get(String componentName) {
+	public SqmBindableType<?> get(String componentName) {
 		final Integer index = componentIndexMap.get( componentName );
 		return index == null ? null : expressibles[index];
 	}
@@ -210,20 +223,24 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 					pluralAttribute.getElementType()
 			);
 		}
-		else if ( sqmType instanceof BasicType<T> ) {
+		else if ( sqmType instanceof BasicDomainType<?> ) {
 			return new AnonymousTupleSimpleSqmPathSource<>(
 					name,
 					sqmType,
 					BindableType.SINGULAR_ATTRIBUTE
 			);
 		}
-		else {
+		// TODO: introduce SqmSimpleDomainType to get rid of unchecked cast
+		else if ( sqmType instanceof SimpleDomainType<?> ) {
 			return new AnonymousTupleSqmAssociationPathSourceNew<>(
 					name,
 					(SqmPathSource<T>) expressible,
 					sqmType,
 					(SimpleDomainType<T>) sqmType
 			);
+		}
+		else {
+			throw new AssertionFailure( "Unsupported domain type " + sqmType );
 		}
 	}
 
@@ -234,12 +251,14 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 
 	@Override
 	public BindableType getBindableType() {
-		return BindableType.ENTITY_TYPE;
+		// TODO: should this be SINGULAR_ATTRIBUTE
+		return ENTITY_TYPE;
 	}
 
 	@Override
 	public PersistenceType getPersistenceType() {
-		return PersistenceType.ENTITY;
+		// TODO: should this be EMBEDDABLE
+		return ENTITY;
 	}
 
 	@Override
@@ -266,13 +285,12 @@ public class AnonymousTupleType<T> implements TupleType<T>, SqmDomainType<T>, Re
 
 	@Override
 	public Class<T> getBindableJavaType() {
-		//noinspection unchecked
-		return (Class<T>) javaTypeDescriptor.getJavaType();
+		return javaTypeDescriptor.getJavaTypeClass();
 	}
 
 	@Override
 	public Class<T> getJavaType() {
-		return getBindableJavaType();
+		return javaTypeDescriptor.getJavaTypeClass();
 	}
 
 	@Override

@@ -24,6 +24,7 @@ import org.hibernate.sql.exec.spi.JdbcParameterBindings;
 import org.hibernate.sql.exec.spi.JdbcParametersList;
 
 import static org.hibernate.loader.ast.internal.MultiKeyLoadLogging.MULTI_KEY_LOAD_LOGGER;
+import static org.hibernate.pretty.MessageHelper.infoString;
 
 /**
  * An {@link EntityBatchLoader} using one or more SQL queries, which each initialize up
@@ -61,12 +62,12 @@ public class EntityBatchLoaderInPredicate<T>
 				sessionFactory.getJdbcServices().getDialect().getBatchLoadSizingStrategy()
 						.determineOptimalBatchLoadSize( idColumnCount, domainBatchSize, false );
 
-		if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.debugf(
-					"Batch fetching `%s` entity using padded IN-list : %s (%s)",
+		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+			MULTI_KEY_LOAD_LOGGER.tracef(
+					"Batch fetching enabled for entity '%s' using IN-predicate with batch size %s (%s)",
 					entityDescriptor.getEntityName(),
-					domainBatchSize,
-					sqlBatchSize
+					sqlBatchSize,
+					domainBatchSize
 			);
 		}
 
@@ -81,7 +82,7 @@ public class EntityBatchLoaderInPredicate<T>
 				null,
 				sqlBatchSize,
 				loadQueryInfluencers,
-				LockOptions.NONE,
+				new LockOptions(),
 				builder::add,
 				sessionFactory
 		);
@@ -121,9 +122,10 @@ public class EntityBatchLoaderInPredicate<T>
 			LockOptions lockOptions,
 			Boolean readOnly,
 			SharedSessionContractImplementor session) {
-		if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.debugf( "Ids to batch-fetch initialize (`%s#%s`) %s",
-					getLoadable().getEntityName(), pkValue, Arrays.toString(idsToInitialize) );
+		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+			MULTI_KEY_LOAD_LOGGER.tracef( "Entity ids to initialize via batch fetching (%s) %s",
+					infoString( getLoadable(), pkValue ),
+					Arrays.toString(idsToInitialize) );
 		}
 
 		final BatchFetchQueue batchFetchQueue = session.getPersistenceContextInternal().getBatchFetchQueue();
@@ -156,11 +158,10 @@ public class EntityBatchLoaderInPredicate<T>
 							}
 						},
 						(startIndex) -> {
-							if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-								MULTI_KEY_LOAD_LOGGER.debugf(
-										"Processing entity batch-fetch chunk (`%s#%s`) %s - %s",
-										getLoadable().getEntityName(),
-										pkValue,
+							if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+								MULTI_KEY_LOAD_LOGGER.tracef(
+										"Processing entity batch-fetch chunk (%s) %s - %s",
+										infoString( getLoadable(), pkValue ),
 										startIndex,
 										startIndex + ( sqlBatchSize - 1 )
 								);

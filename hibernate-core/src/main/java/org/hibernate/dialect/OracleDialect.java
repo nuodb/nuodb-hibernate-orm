@@ -6,24 +6,31 @@ package org.hibernate.dialect;
 
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
 import org.hibernate.Length;
 import org.hibernate.QueryTimeoutException;
+import org.hibernate.Timeouts;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.dialect.aggregate.AggregateSupport;
 import org.hibernate.dialect.aggregate.OracleAggregateSupport;
 import org.hibernate.dialect.function.CommonFunctionFactory;
 import org.hibernate.dialect.function.ModeStatsModeEmulation;
+import org.hibernate.dialect.function.OracleExtractFunction;
 import org.hibernate.dialect.function.OracleTruncFunction;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
 import org.hibernate.dialect.identity.Oracle12cIdentityColumnSupport;
+import org.hibernate.dialect.lock.internal.OracleLockingSupport;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.Oracle12LimitHandler;
 import org.hibernate.dialect.sequence.OracleSequenceSupport;
 import org.hibernate.dialect.sequence.SequenceSupport;
 import org.hibernate.dialect.sql.ast.OracleSqlAstTranslator;
-import org.hibernate.dialect.temptable.TemporaryTable;
+import org.hibernate.dialect.temptable.OracleLocalTemporaryTableStrategy;
+import org.hibernate.dialect.temptable.StandardGlobalTemporaryTableStrategy;
 import org.hibernate.dialect.temptable.TemporaryTableKind;
+import org.hibernate.dialect.temptable.TemporaryTableStrategy;
 import org.hibernate.dialect.type.OracleBooleanJdbcType;
 import org.hibernate.dialect.type.OracleEnumJdbcType;
 import org.hibernate.dialect.type.OracleJdbcHelper;
@@ -102,6 +109,7 @@ import org.hibernate.type.descriptor.sql.internal.NamedNativeEnumDdlTypeImpl;
 import org.hibernate.type.descriptor.sql.internal.NamedNativeOrdinalEnumDdlTypeImpl;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 import org.hibernate.type.spi.TypeConfiguration;
+import org.jboss.logging.Logger;
 
 import java.sql.CallableStatement;
 import java.sql.DatabaseMetaData;
@@ -110,21 +118,23 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
+import java.util.List;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.lang.String.join;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
-import static org.hibernate.LockOptions.NO_WAIT;
-import static org.hibernate.LockOptions.SKIP_LOCKED;
-import static org.hibernate.LockOptions.WAIT_FOREVER;
+import static org.hibernate.cfg.DialectSpecificSettings.ORACLE_OSON_DISABLED;
 import static org.hibernate.cfg.DialectSpecificSettings.ORACLE_USE_BINARY_FLOATS;
+import static org.hibernate.dialect.DialectLogging.DIALECT_LOGGER;
 import static org.hibernate.dialect.type.OracleJdbcHelper.getArrayJdbcTypeConstructor;
 import static org.hibernate.dialect.type.OracleJdbcHelper.getNestedTableJdbcTypeConstructor;
 import static org.hibernate.exception.spi.TemplatedViolatedConstraintNameExtractor.extractUsingTemplate;
 import static org.hibernate.internal.util.JdbcExceptionHelper.extractErrorCode;
 import static org.hibernate.internal.util.StringHelper.isEmpty;
 import static org.hibernate.internal.util.StringHelper.isNotEmpty;
+import static org.hibernate.internal.util.config.ConfigurationHelper.getBoolean;
 import static org.hibernate.query.common.TemporalUnit.DAY;
 import static org.hibernate.query.common.TemporalUnit.HOUR;
 import static org.hibernate.query.common.TemporalUnit.MINUTE;
@@ -214,6 +224,7 @@ public class OracleDialect extends Dialect {
 
 	// Is the database accessed using a database service protected by Application Continuity.
 	protected final boolean applicationContinuity;
+
 	protected final int driverMajorVersion;
 	protected final int driverMinorVersion;
 	private boolean useBinaryFloat;
@@ -418,6 +429,11 @@ public class OracleDialect extends Dialect {
 		functionFactory.hex( "rawtohex(?1)" );
 		functionFactory.sha( "standard_hash(?1, 'SHA256')" );
 		functionFactory.md5( "standard_hash(?1, 'MD5')" );
+
+		functionContributions.getFunctionRegistry().register(
+				"extract",
+				new OracleExtractFunction( this, typeConfiguration )
+		);
 	}
 
 	/**
@@ -839,6 +855,7 @@ public class OracleDialect extends Dialect {
 		}
 		// We need the DDL type during runtime to produce the proper encoding in certain functions
 		ddlTypeRegistry.addDescriptor( new DdlTypeImpl( BIT, "number(1,0)", this ) );
+
 	}
 
 	@Override
@@ -954,6 +971,11 @@ public class OracleDialect extends Dialect {
 	}
 
 	@Override
+	public boolean supportsUserDefinedTypes() {
+		return true;
+	}
+
+	@Override
 	public String getArrayTypeName(String javaElementTypeName, String elementTypeName, Integer maxLength) {
 		return ( javaElementTypeName == null ? elementTypeName : javaElementTypeName ) + "Array";
 	}
@@ -997,8 +1019,24 @@ public class OracleDialect extends Dialect {
 		}
 
 		if ( getVersion().isSameOrAfter( 21 ) ) {
-			typeContributions.contributeJdbcType( OracleJsonJdbcType.INSTANCE );
-			typeContributions.contributeJdbcTypeConstructor( OracleJsonArrayJdbcTypeConstructor.NATIVE_INSTANCE );
+			final boolean osonDisabled = getBoolean( ORACLE_OSON_DISABLED, configurationService.getSettings() );
+			if ( !osonDisabled && OracleJdbcHelper.isOsonAvailable( serviceRegistry ) ) {
+				// We must check that that extension is available and actually used.
+				typeContributions.contributeJdbcType( OracleOsonJdbcType.INSTANCE );
+				typeContributions.contributeJdbcTypeConstructor( OracleOsonArrayJdbcTypeConstructor.INSTANCE );
+
+				DIALECT_LOGGER.log( Logger.Level.DEBUG, "Oracle OSON extension enabled" );
+			}
+			else {
+				if ( osonDisabled ) {
+					DIALECT_LOGGER.log( Logger.Level.DEBUG, "Oracle OSON extension disabled" );
+				}
+				else {
+					DIALECT_LOGGER.log( Logger.Level.DEBUG, "Oracle OSON extension not available" );
+				}
+				typeContributions.contributeJdbcType( OracleJsonJdbcType.INSTANCE );
+				typeContributions.contributeJdbcTypeConstructor( OracleJsonArrayJdbcTypeConstructor.NATIVE_INSTANCE );
+			}
 		}
 		else {
 			typeContributions.contributeJdbcType( OracleJsonBlobJdbcType.INSTANCE );
@@ -1269,33 +1307,27 @@ public class OracleDialect extends Dialect {
 	}
 
 	@Override
+	public TemporaryTableStrategy getLocalTemporaryTableStrategy() {
+		return OracleLocalTemporaryTableStrategy.INSTANCE;
+	}
+
+	@Override
+	public TemporaryTableStrategy getGlobalTemporaryTableStrategy() {
+		return StandardGlobalTemporaryTableStrategy.INSTANCE;
+	}
+
+	@Override
 	public SqmMultiTableMutationStrategy getFallbackSqmMutationStrategy(
 			EntityMappingType rootEntityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
-		return new GlobalTemporaryTableMutationStrategy(
-				TemporaryTable.createIdTable(
-						rootEntityDescriptor,
-						basename -> TemporaryTable.ID_TABLE_PREFIX + basename,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+		return new GlobalTemporaryTableMutationStrategy( rootEntityDescriptor, runtimeModelCreationContext );
 	}
 
 	@Override
 	public SqmMultiTableInsertStrategy getFallbackSqmInsertStrategy(
 			EntityMappingType rootEntityDescriptor,
 			RuntimeModelCreationContext runtimeModelCreationContext) {
-		return new GlobalTemporaryTableInsertStrategy(
-				TemporaryTable.createEntityTable(
-						rootEntityDescriptor,
-						name -> TemporaryTable.ENTITY_TABLE_PREFIX + name,
-						this,
-						runtimeModelCreationContext
-				),
-				runtimeModelCreationContext.getSessionFactory()
-		);
+		return new GlobalTemporaryTableInsertStrategy( rootEntityDescriptor, runtimeModelCreationContext );
 	}
 
 	@Override
@@ -1305,7 +1337,7 @@ public class OracleDialect extends Dialect {
 
 	@Override
 	public String getTemporaryTableCreateOptions() {
-		return "on commit delete rows";
+		return StandardGlobalTemporaryTableStrategy.INSTANCE.getTemporaryTableCreateOptions();
 	}
 
 	/**
@@ -1325,6 +1357,16 @@ public class OracleDialect extends Dialect {
 			|| UNION_KEYWORD_PATTERN.matcher( sql ).find()
 			|| ORDER_BY_KEYWORD_PATTERN.matcher( sql ).find() && queryOptions.hasLimit()
 			|| queryOptions.hasLimit() && queryOptions.getLimit().getFirstRow() != null;
+	}
+
+	public String getQueryHintString(String query, List<String> hintList) {
+		if ( hintList.isEmpty() ) {
+			return query;
+		}
+		else {
+			final String hints = join( " ", hintList );
+			return isEmpty( hints ) ? query : getQueryHintString( query, hints );
+		}
 	}
 
 	@Override
@@ -1422,22 +1464,12 @@ public class OracleDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsNoWait() {
-		return true;
+	public LockingSupport getLockingSupport() {
+		return OracleLockingSupport.ORACLE_LOCKING_SUPPORT;
 	}
 
 	@Override
-	public boolean supportsSkipLocked() {
-		return true;
-	}
-
-	@Override
-	public RowLockStrategy getWriteRowLockStrategy() {
-		return RowLockStrategy.COLUMN;
-	}
-
-	@Override
-	public String getForUpdateNowaitString() {
+	public String getForUpdateNowaitString(){
 		return " for update nowait";
 	}
 
@@ -1461,12 +1493,36 @@ public class OracleDialect extends Dialect {
 		return " for update of " + aliases + " skip locked";
 	}
 
+	private String withTimeout(String lockString, Timeout timeout) {
+		return withTimeout( lockString, timeout.milliseconds() );
+	}
+
+	@Override
+	public String getWriteLockString(Timeout timeout) {
+		return withTimeout( getForUpdateString(), timeout );
+	}
+
+	@Override
+	public String getWriteLockString(String aliases, Timeout timeout) {
+		return withTimeout( getForUpdateString(aliases), timeout );
+	}
+
+	@Override
+	public String getReadLockString(Timeout timeout) {
+		return getWriteLockString( timeout );
+	}
+
+	@Override
+	public String getReadLockString(String aliases, Timeout timeout) {
+		return getWriteLockString( aliases, timeout );
+	}
+
 	private String withTimeout(String lockString, int timeout) {
 		return switch (timeout) {
-			case NO_WAIT -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case SKIP_LOCKED -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
-			case WAIT_FOREVER -> lockString;
-			default -> supportsWait() ? lockString + " wait " + getTimeoutInSeconds( timeout ) : lockString;
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			case Timeouts.WAIT_FOREVER_MILLI -> lockString;
+			default -> supportsWait() ? lockString + " wait " + Timeouts.getTimeoutInSeconds( timeout ) : lockString;
 		};
 	}
 

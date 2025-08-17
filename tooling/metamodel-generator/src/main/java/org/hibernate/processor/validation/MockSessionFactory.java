@@ -10,6 +10,7 @@ import org.hibernate.CustomEntityDirtinessStrategy;
 import org.hibernate.EntityNameResolver;
 import org.hibernate.MappingException;
 import org.hibernate.SessionFactoryObserver;
+import org.hibernate.metamodel.mapping.EntityVersionMapping;
 import org.hibernate.type.TimeZoneStorageStrategy;
 import org.hibernate.boot.internal.DefaultCustomEntityDirtinessStrategy;
 import org.hibernate.boot.internal.MetadataImpl;
@@ -46,15 +47,10 @@ import org.hibernate.engine.query.spi.NativeQueryInterpreter;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.graph.spi.RootGraphImplementor;
 import org.hibernate.jpa.internal.MutableJpaComplianceImpl;
-import org.hibernate.jpa.spi.JpaCompliance;
 import org.hibernate.jpa.spi.MutableJpaCompliance;
 import org.hibernate.mapping.Property;
 import org.hibernate.metamodel.AttributeClassification;
 import org.hibernate.metamodel.CollectionClassification;
-import org.hibernate.metamodel.internal.JpaMetamodelPopulationSetting;
-import org.hibernate.metamodel.internal.JpaStaticMetamodelPopulationSetting;
-import org.hibernate.metamodel.MappingMetamodel;
-import org.hibernate.metamodel.internal.MetadataContext;
 import org.hibernate.metamodel.mapping.EntityIdentifierMapping;
 import org.hibernate.metamodel.mapping.JdbcMapping;
 import org.hibernate.metamodel.model.domain.BasicDomainType;
@@ -126,6 +122,7 @@ import org.hibernate.type.descriptor.jdbc.JdbcTypeIndicators;
 import org.hibernate.type.descriptor.jdbc.ObjectJdbcType;
 import org.hibernate.type.spi.TypeConfiguration;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,7 +158,7 @@ public abstract class MockSessionFactory
 	private final MappingMetamodelImpl metamodel;
 
 	private final MetadataImplementor bootModel;
-	private final MetadataContext metadataContext;
+//	private final MetadataContext metadataContext;
 
 	private final NodeBuilder nodeBuilder;
 	private final SqlTranslationEngine sqlTranslationEngine;
@@ -191,7 +188,7 @@ public abstract class MockSessionFactory
 						true,
 						classLoaderService,
 						new StrategySelectorImpl( classLoaderService ),
-						() -> emptyList()
+						Collections::emptyList
 				),
 //				new BootstrapServiceRegistryBuilder().applyClassLoaderService( classLoaderService ).build(),
 				singletonList(MockJdbcServicesInitiator.INSTANCE),
@@ -226,15 +223,15 @@ public abstract class MockSessionFactory
 				this
 		);
 
-		metadataContext = new MetadataContext(
-				metamodel.getJpaMetamodel(),
-				metamodel,
-				bootModel,
-				JpaStaticMetamodelPopulationSetting.DISABLED,
-				JpaMetamodelPopulationSetting.DISABLED,
-				this,
-				classLoaderService
-		);
+//		metadataContext = new MetadataContext(
+//				metamodel.getJpaMetamodel(),
+//				metamodel,
+//				bootModel,
+//				JpaStaticMetamodelPopulationSetting.DISABLED,
+//				JpaMetamodelPopulationSetting.DISABLED,
+//				this,
+//				classLoaderService
+//		);
 
 		typeConfiguration = new TypeConfiguration();
 		typeConfiguration.scope((MetadataBuildingContext) this);
@@ -383,7 +380,7 @@ public abstract class MockSessionFactory
 	}
 
 	@Override
-	public MappingMetamodel getMetamodel() {
+	public MappingMetamodelImplementor getMetamodel() {
 		return metamodel;
 	}
 
@@ -914,11 +911,6 @@ public abstract class MockSessionFactory
 		public @Nullable Set<String> getEnumTypesForValue(String enumValue) {
 			return MockSessionFactory.this.getEnumTypesForValue(enumValue);
 		}
-
-		@Override
-		public JpaCompliance getJpaCompliance() {
-			return jpaCompliance;
-		}
 	}
 
 	@Nullable Set<String> getEnumTypesForValue(String value) {
@@ -960,7 +952,7 @@ public abstract class MockSessionFactory
 			else {
 				return new SingularAttributeImpl<>(
 						MockEntityDomainType.this,
-						"{version}",
+						EntityVersionMapping.VERSION_ROLE_NAME,
 						AttributeClassification.BASIC,
 						type,
 						type.getRelationalJavaType(),
@@ -968,8 +960,7 @@ public abstract class MockSessionFactory
 						false,
 						true,
 						false,
-						false,
-						metadataContext
+						false
 				);
 			}
 		}
@@ -1011,7 +1002,7 @@ public abstract class MockSessionFactory
 			switch (name) {
 				case EntityIdentifierMapping.ID_ROLE_NAME:
 					return getIdentifierDescriptor();
-				case "{version}":
+				case EntityVersionMapping.VERSION_ROLE_NAME:
 					return findVersionAttribute();
 			}
 			final SqmPathSource<?> source = super.findSubPathSource(name, includeSubtypes);
@@ -1083,8 +1074,7 @@ public abstract class MockSessionFactory
 					false,
 					false,
 					true,
-					false,
-					metadataContext
+					false
 			);
 		}
 		else if ( type.isComponentType() ) {
@@ -1099,8 +1089,7 @@ public abstract class MockSessionFactory
 					false,
 					false,
 					true,
-					false,
-					metadataContext
+					false
 			);
 		}
 		else {
@@ -1116,8 +1105,7 @@ public abstract class MockSessionFactory
 					false,
 					false,
 					true,
-					false,
-					metadataContext
+					false
 			);
 		}
 	}
@@ -1175,8 +1163,7 @@ public abstract class MockSessionFactory
 							owner,
 							property,
 							null
-					),
-					metadataContext
+					)
 			);
 			case BAG, ID_BAG -> new BagAttributeImpl(
 					new PluralAttributeBuilder<>(
@@ -1189,8 +1176,7 @@ public abstract class MockSessionFactory
 							owner,
 							property,
 							null
-					),
-					metadataContext
+					)
 			);
 			case SET, SORTED_SET, ORDERED_SET -> new SetAttributeImpl(
 					new PluralAttributeBuilder<>(
@@ -1203,8 +1189,7 @@ public abstract class MockSessionFactory
 							owner,
 							property,
 							null
-					),
-					metadataContext
+					)
 			);
 			case MAP, SORTED_MAP, ORDERED_MAP -> new MapAttributeImpl(
 					new PluralAttributeBuilder<>(
@@ -1217,8 +1202,7 @@ public abstract class MockSessionFactory
 							owner,
 							property,
 							null
-					),
-					metadataContext
+					)
 			);
 			default -> null;
 		};

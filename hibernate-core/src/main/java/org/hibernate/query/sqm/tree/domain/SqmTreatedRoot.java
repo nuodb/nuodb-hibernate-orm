@@ -7,11 +7,13 @@ package org.hibernate.query.sqm.tree.domain;
 import org.hibernate.metamodel.model.domain.EntityDomainType;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmPathSource;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.from.SqmRoot;
 import org.hibernate.spi.NavigablePath;
+
+import java.util.Objects;
 
 /**
  * @author Steve Ebersole
@@ -37,7 +39,7 @@ public class SqmTreatedRoot extends SqmRoot implements SqmTreatedFrom {
 		this.treatTarget = treatTarget;
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings("unchecked")
 	private SqmTreatedRoot(
 			NavigablePath navigablePath,
 			SqmRoot wrappedPath,
@@ -86,7 +88,7 @@ public class SqmTreatedRoot extends SqmRoot implements SqmTreatedFrom {
 	}
 
 	@Override
-	public SqmPathSource getNodeType() {
+	public SqmBindableType getNodeType() {
 		return treatTarget;
 	}
 
@@ -123,5 +125,18 @@ public class SqmTreatedRoot extends SqmRoot implements SqmTreatedFrom {
 		hql.append( " as " );
 		hql.append( treatTarget.getName() );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmTreatedRoot that
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
+			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( wrappedPath.getNavigablePath(), treatTarget.getName() );
 	}
 }

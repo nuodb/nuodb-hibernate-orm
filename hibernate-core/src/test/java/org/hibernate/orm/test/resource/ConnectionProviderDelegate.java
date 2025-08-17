@@ -122,15 +122,13 @@ public class ConnectionProviderDelegate implements
 
 	@Override
 	public void closeConnection(Connection connection) throws SQLException {
-		connectionProvider.closeConnection( connection );
+		connectionProvider.closeConnection( ((ConnectionWrapper) connection).delegate );
 	}
 
 	@Override
 	public boolean supportsAggressiveRelease() {
-		if ( forceSupportsAggressiveRelease ) {
-			return true;
-		}
-		return connectionProvider.supportsAggressiveRelease();
+		return forceSupportsAggressiveRelease
+			|| connectionProvider.supportsAggressiveRelease();
 	}
 
 	@Override

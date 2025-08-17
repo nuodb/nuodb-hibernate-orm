@@ -7,10 +7,13 @@ package org.hibernate.query.sqm.tree.domain;
 import org.hibernate.query.PathException;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.spi.NavigablePath;
+
+import java.util.Objects;
 
 /**
  * @author Steve Ebersole
@@ -103,7 +106,7 @@ public class SqmTreatedSimplePath<T, S extends T>
 	}
 
 	@Override
-	public SqmPathSource<S> getNodeType() {
+	public SqmBindableType<S> getNodeType() {
 		return treatTarget;
 	}
 
@@ -141,5 +144,18 @@ public class SqmTreatedSimplePath<T, S extends T>
 		hql.append( " as " );
 		hql.append( treatTarget.getName() );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmTreatedSimplePath<?, ?> that
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
+			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( treatTarget.getName(), wrappedPath.getNavigablePath() );
 	}
 }

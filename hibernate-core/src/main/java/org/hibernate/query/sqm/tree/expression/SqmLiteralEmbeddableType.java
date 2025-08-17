@@ -10,12 +10,14 @@ import org.hibernate.query.hql.spi.SemanticPathPart;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.hibernate.query.sqm.tree.domain.SqmEmbeddableDomainType;
 import org.hibernate.query.sqm.tree.select.SqmSelectableNode;
+
+import java.util.Objects;
 
 import static org.hibernate.persister.entity.DiscriminatorHelper.getDiscriminatorType;
 
@@ -54,7 +56,7 @@ public class SqmLiteralEmbeddableType<T>
 	}
 
 	@Override
-	public void internalApplyInferableType(SqmExpressible<?> type) {
+	public void internalApplyInferableType(SqmBindableType<?> type) {
 	}
 
 	@Override
@@ -86,5 +88,16 @@ public class SqmLiteralEmbeddableType<T>
 	@Override
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
 		hql.append( embeddableDomainType.getTypeName() );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmLiteralEmbeddableType<?> that
+			&& Objects.equals( embeddableDomainType.getTypeName(), that.embeddableDomainType.getTypeName() );
+	}
+
+	@Override
+	public int hashCode() {
+		return embeddableDomainType.getTypeName().hashCode();
 	}
 }

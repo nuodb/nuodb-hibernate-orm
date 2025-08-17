@@ -227,7 +227,19 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	StatelessSession openStatelessSession(Connection connection);
 
 	/**
-	 * Open a {@link Session} and use it to perform an action.
+	 * Open a {@link Session} and use it to perform the given action.
+	 *
+	 * @apiNote This method does not begin a transaction, and so
+	 * the session is not automatically flushed before the method
+	 * returns unless either:
+	 * <ul>
+	 * <li>the given action calls {@link Session#flush() flush()}
+	 *     explicitly, or
+	 * <li>a transaction is initiated by the given action, using
+	 *     {@link Session#inTransaction}, for example.
+	 * </ul>
+	 *
+	 * @see #inTransaction(Consumer)
 	 */
 	default void inSession(Consumer<? super Session> action) {
 		try ( Session session = openSession() ) {
@@ -236,7 +248,20 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	}
 
 	/**
-	 * Open a {@link StatelessSession} and use it to perform an action.
+	 * Open a {@link StatelessSession} and use it to perform the
+	 * given action.
+	 *
+	 * @apiNote This method does not begin a transaction, and so
+	 * the session is not automatically flushed before the method
+	 * returns unless either:
+	 * <ul>
+	 * <li>the given action calls {@link Session#flush() flush()}
+	 *     explicitly, or
+	 * <li>a transaction is initiated by the given action, using
+	 *     {@link Session#inTransaction}, for example.
+	 * </ul>
+	 *
+	 * @see #inStatelessTransaction(Consumer)
 	 *
 	 * @since 6.3
 	 */
@@ -247,7 +272,7 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	}
 
 	/**
-	 * Open a {@link Session} and use it to perform an action
+	 * Open a {@link Session} and use it to perform the given action
 	 * within the bounds of a transaction.
 	 *
 	 * @apiNote This method competes with the JPA-defined method
@@ -269,6 +294,18 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 
 	/**
 	 * Open a {@link Session} and use it to obtain a value.
+	 *
+	 * @apiNote This method does not begin a transaction, and so
+	 * the session is not automatically flushed before the method
+	 * returns unless either:
+	 * <ul>
+	 * <li>the given action calls {@link Session#flush() flush()}
+	 *     explicitly, or
+	 * <li>a transaction is initiated by the given action, using
+	 *     {@link Session#inTransaction}, for example.
+	 * </ul>
+	 *
+	 * @see #fromTransaction(Function)
 	 */
 	default <R> R fromSession(Function<? super Session,R> action) {
 		try ( Session session = openSession() ) {
@@ -278,6 +315,18 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 
 	/**
 	 * Open a {@link StatelessSession} and use it to obtain a value.
+	 *
+	 * @apiNote This method does not begin a transaction, and so
+	 * the session is not automatically flushed before the method
+	 * returns unless either:
+	 * <ul>
+	 * <li>the given action calls {@link Session#flush() flush()}
+	 *     explicitly, or
+	 * <li>a transaction is initiated by the given action, using
+	 *     {@link Session#inTransaction}, for example.
+	 * </ul>
+	 *
+	 * @see #fromStatelessTransaction(Function)
 	 *
 	 * @since 6.3
 	 */
@@ -457,8 +506,8 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	RootGraph<Map<String,?>> createGraphForDynamicEntity(String entityName);
 
 	/**
-	 * Creates a RootGraph for the given {@code rootEntityClass} and parses the graph text into
-	 * it.
+	 * Creates a {@link RootGraph} for the given {@code rootEntityClass} and parses the
+	 * graph text into it.
 	 *
 	 * @param rootEntityClass The entity class to use as the base of the created root-graph
 	 * @param graphText The textual representation of the graph
@@ -478,8 +527,8 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	}
 
 	/**
-	 * Creates a RootGraph for the given {@code rootEntityName} and parses the graph text into
-	 * it.
+	 * Creates a {@link RootGraph} for the given {@code rootEntityName} and parses the graph
+	 * text into it.
 	 *
 	 * @param rootEntityName The name of the entity to use as the base of the created root-graph
 	 * @param graphText The textual representation of the graph
@@ -499,7 +548,7 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	}
 
 	/**
-	 * Creates a RootGraph based on the passed string representation.  Here, the
+	 * Creates a {@link RootGraph} based on the passed string representation.  Here, the
 	 * string representation is expected to include the root entity name.
 	 *
 	 * @param graphText The textual representation of the graph
@@ -516,7 +565,7 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	}
 
 	/**
-	 * Obtain the set of names of all {@link org.hibernate.annotations.FilterDef
+	 * Obtain the set of names of all {@linkplain org.hibernate.annotations.FilterDef
 	 * defined filters}.
 	 *
 	 * @return The set of filter names given by
@@ -539,7 +588,7 @@ public interface SessionFactory extends EntityManagerFactory, Referenceable, Ser
 	FilterDefinition getFilterDefinition(String filterName) throws HibernateException;
 
 	/**
-	 * Obtain the set of names of all {@link org.hibernate.annotations.FetchProfile
+	 * Obtain the set of names of all {@linkplain org.hibernate.annotations.FetchProfile
 	 * defined fetch profiles}.
 	 *
 	 * @return The set of fetch profile names given by

@@ -5,13 +5,14 @@
 package org.hibernate.query.sqm.tree.expression;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.hibernate.query.criteria.JpaFunction;
 import org.hibernate.query.hql.spi.SemanticPathPart;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.function.SqmFunctionDescriptor;
 import org.hibernate.query.sqm.sql.SqmToSqlAstConverter;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
@@ -39,7 +40,7 @@ public abstract class SqmFunction<T> extends AbstractSqmExpression<T>
 	public SqmFunction(
 			String functionName,
 			SqmFunctionDescriptor functionDescriptor,
-			@Nullable SqmExpressible<T> type,
+			@Nullable SqmBindableType<T> type,
 			List<? extends SqmTypedNode<?>> arguments,
 			NodeBuilder criteriaBuilder) {
 		super( type, criteriaBuilder );
@@ -182,7 +183,7 @@ public abstract class SqmFunction<T> extends AbstractSqmExpression<T>
 	private SqmFunctionPath<T> getFunctionPath() {
 		SqmFunctionPath<T> path = functionPath;
 		if ( path == null ) {
-			path = functionPath = new SqmFunctionPath<T>( this );
+			path = functionPath = new SqmFunctionPath<>( this );
 		}
 		return path;
 	}
@@ -201,5 +202,17 @@ public abstract class SqmFunction<T> extends AbstractSqmExpression<T>
 			boolean isTerminal,
 			SqmCreationState creationState) {
 		return getFunctionPath().resolveIndexedAccess( selector, isTerminal, creationState );
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof SqmFunction<?> that
+			&& Objects.equals( this.functionName, that.functionName )
+			&& Objects.equals( this.arguments, that.arguments );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( functionName, arguments );
 	}
 }

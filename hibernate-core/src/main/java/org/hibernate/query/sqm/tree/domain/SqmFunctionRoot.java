@@ -17,6 +17,8 @@ import org.hibernate.query.sqm.tree.expression.SqmSetReturningFunction;
 import org.hibernate.query.sqm.tree.from.SqmRoot;
 import org.hibernate.spi.NavigablePath;
 
+import java.util.Objects;
+
 
 /**
  * @author Christian Beikov
@@ -76,8 +78,10 @@ public class SqmFunctionRoot<E> extends SqmRoot<E> implements JpaFunctionRoot<E>
 
 	@Override
 	public SqmPath<Long> index() {
+		final SqmPathSource<?> pathSource =
+				function.getType().getSubPathSource( CollectionPart.Nature.INDEX.getName() );
 		//noinspection unchecked
-		final SqmPathSource<Long> indexPathSource = (SqmPathSource<Long>) function.getType().getSubPathSource( CollectionPart.Nature.INDEX.getName() );
+		final SqmPathSource<Long> indexPathSource = (SqmPathSource<Long>) pathSource;
 		return resolvePath( indexPathSource.getPathName(), indexPathSource );
 	}
 
@@ -138,5 +142,17 @@ public class SqmFunctionRoot<E> extends SqmRoot<E> implements JpaFunctionRoot<E>
 	@Override
 	public <S extends E> SqmTreatedRoot treatAs(EntityDomainType<S> treatTarget, String alias, boolean fetch) {
 		throw new UnsupportedOperationException( "Function roots can not be treated" );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmFunctionRoot<?> that
+			&& super.equals( object )
+			&& Objects.equals( this.function, that.function );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( super.hashCode(), function );
 	}
 }

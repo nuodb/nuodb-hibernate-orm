@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import jakarta.persistence.EntityGraph;
 
+import jakarta.persistence.PessimisticLockScope;
+import jakarta.persistence.Timeout;
 import org.hibernate.graph.GraphSemantic;
 
 /**
@@ -41,9 +43,45 @@ import org.hibernate.graph.GraphSemantic;
  * @author Eric Dalquist
  * @author Steve Ebersole
  *
- * @see Session#byId(Class)
+ * @see Session#byId
+ *
+ * @deprecated Use forms of {@linkplain Session#find} accepting
+ * {@linkplain jakarta.persistence.FindOption} instead of {@linkplain Session#byId}.
  */
+@Deprecated(since = "7.1", forRemoval = true)
 public interface IdentifierLoadAccess<T> {
+
+	/**
+	 * Specify the {@linkplain LockMode lock mode} to use when
+	 * querying the database.
+	 *
+	 * @param lockMode The lock mode to apply
+	 * @return {@code this}, for method chaining
+	 */
+	default IdentifierLoadAccess<T> with(LockMode lockMode) {
+		return with( lockMode, PessimisticLockScope.NORMAL );
+	}
+
+	/**
+	 * Specify the {@linkplain LockMode lock mode} to use when
+	 * querying the database.
+	 *
+	 * @param lockMode The lock mode to apply
+	 *
+	 * @return {@code this}, for method chaining
+	 */
+	IdentifierLoadAccess<T> with(LockMode lockMode, PessimisticLockScope lockScope);
+
+	/**
+	 * Specify the {@linkplain Timeout timeout} to use when
+	 * querying the database.
+	 *
+	 * @param timeout The timeout to apply to the database operation
+	 *
+	 * @return {@code this}, for method chaining
+	 */
+	IdentifierLoadAccess<T> with(Timeout timeout);
+
 	/**
 	 * Specify the {@linkplain LockOptions lock options} to use when
 	 * querying the database.
@@ -51,7 +89,12 @@ public interface IdentifierLoadAccess<T> {
 	 * @param lockOptions The lock options to use
 	 *
 	 * @return {@code this}, for method chaining
+	 *
+	 * @deprecated Use one of {@linkplain #with(LockMode)},
+	 * {@linkplain #with(LockMode, PessimisticLockScope)}
+	 * and/or {@linkplain #with(Timeout)} instead.
 	 */
+	@Deprecated(since = "7.0", forRemoval = true)
 	IdentifierLoadAccess<T> with(LockOptions lockOptions);
 
 	/**

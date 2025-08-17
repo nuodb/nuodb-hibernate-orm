@@ -25,6 +25,8 @@ import org.hibernate.resource.jdbc.spi.LogicalConnectionImplementor;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
+
 /**
  * Standard implementation of {@link StatementPreparer}.
  *
@@ -71,7 +73,7 @@ class StatementPreparerImpl implements StatementPreparer {
 			return statement;
 		}
 		catch ( SQLException e ) {
-			throw sqlExceptionHelper().convert( e, "could not create statement" );
+			throw sqlExceptionHelper().convert( e, "Could not create statement" );
 		}
 	}
 
@@ -141,7 +143,7 @@ class StatementPreparerImpl implements StatementPreparer {
 		final int resultSetType;
 		if ( scrollMode != null && scrollMode != ScrollMode.FORWARD_ONLY ) {
 			if ( !settings().isScrollableResultSetsEnabled() ) {
-				throw new AssertionFailure("scrollable result sets are not enabled");
+				throw new AssertionFailure( "Scrollable result sets are not enabled" );
 			}
 			resultSetType = scrollMode.toResultSetType();
 		}
@@ -193,7 +195,7 @@ class StatementPreparerImpl implements StatementPreparer {
 				return preparedStatement;
 			}
 			catch ( SQLException e ) {
-				throw sqlExceptionHelper().convert( e, "could not prepare statement", sql );
+				throw sqlExceptionHelper().convert( e, "Could not prepare statement", sql );
 			}
 		}
 
@@ -224,8 +226,21 @@ class StatementPreparerImpl implements StatementPreparer {
 	}
 
 	private void setStatementFetchSize(PreparedStatement statement) throws SQLException {
-		if ( settings().getFetchSizeOrNull() != null ) {
-			statement.setFetchSize( settings().getFetchSizeOrNull() );
+		final Integer fetchSize = settings().getFetchSizeOrNull();
+		if ( fetchSize != null ) {
+			JDBC_MESSAGE_LOGGER.settingFetchSize( fetchSize );
+			statement.setFetchSize( fetchSize );
+		}
+		else {
+			if ( JDBC_MESSAGE_LOGGER.isDebugEnabled() ) {
+				final int defaultFetchSize = statement.getFetchSize();
+				if ( defaultFetchSize > 0 && defaultFetchSize < 100 ) {
+					JDBC_MESSAGE_LOGGER.lowFetchSize( defaultFetchSize );
+				}
+			}
+			else if ( JDBC_MESSAGE_LOGGER.isTraceEnabled() ) {
+				JDBC_MESSAGE_LOGGER.fetchSize( statement.getFetchSize() );
+			}
 		}
 	}
 

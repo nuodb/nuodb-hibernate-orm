@@ -26,7 +26,7 @@ import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.internal.FilterImpl;
 import org.hibernate.metamodel.mapping.JdbcMapping;
 import org.hibernate.metamodel.mapping.MappingModelExpressible;
-import org.hibernate.query.BindableType;
+import org.hibernate.type.BindableType;
 import org.hibernate.query.QueryParameter;
 import org.hibernate.query.spi.ParameterMetadataImplementor;
 import org.hibernate.query.spi.QueryParameterBinding;
@@ -162,7 +162,7 @@ public class QueryParameterBindingsImpl implements QueryParameterBindings {
 
 	@Override
 	public void validate() {
-		for ( Map.Entry<QueryParameter<?>, QueryParameterBinding<?>> entry : parameterBindingMap.entrySet() ) {
+		for ( var entry : parameterBindingMap.entrySet() ) {
 			if ( !entry.getValue().isBound() ) {
 				final QueryParameter<?> queryParameter = entry.getKey();
 				if ( queryParameter.isNamed() ) {
@@ -285,7 +285,7 @@ public class QueryParameterBindingsImpl implements QueryParameterBindings {
 			}
 		}
 
-		return typeConfiguration.getBasicTypeForJavaType( bindType.getBindableJavaType() );
+		return typeConfiguration.getBasicTypeForJavaType( bindType.getJavaType() );
 	}
 
 	private static class MutableCacheKeyImpl implements MutableCacheKeyBuilder {

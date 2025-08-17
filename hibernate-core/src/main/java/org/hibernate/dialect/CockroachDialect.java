@@ -4,24 +4,14 @@
  */
 package org.hibernate.dialect;
 
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.time.temporal.ChronoField;
-import java.time.temporal.TemporalAccessor;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.QueryTimeoutException;
+import org.hibernate.Timeouts;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.dialect.aggregate.AggregateSupport;
@@ -31,6 +21,8 @@ import org.hibernate.dialect.function.FormatFunction;
 import org.hibernate.dialect.function.PostgreSQLTruncFunction;
 import org.hibernate.dialect.identity.CockroachDBIdentityColumnSupport;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
+import org.hibernate.dialect.lock.internal.CockroachLockingSupport;
+import org.hibernate.dialect.lock.spi.LockingSupport;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.OffsetFetchLimitHandler;
 import org.hibernate.dialect.sequence.PostgreSQLSequenceSupport;
@@ -60,8 +52,8 @@ import org.hibernate.exception.spi.ViolatedConstraintNameExtractor;
 import org.hibernate.internal.util.StringHelper;
 import org.hibernate.internal.util.config.ConfigurationHelper;
 import org.hibernate.query.SemanticException;
-import org.hibernate.query.sqm.IntervalType;
 import org.hibernate.query.common.TemporalUnit;
+import org.hibernate.query.sqm.IntervalType;
 import org.hibernate.query.sqm.produce.function.StandardFunctionArgumentTypeResolvers;
 import org.hibernate.service.ServiceRegistry;
 import org.hibernate.sql.ast.SqlAstTranslator;
@@ -72,11 +64,11 @@ import org.hibernate.sql.ast.tree.Statement;
 import org.hibernate.sql.exec.spi.JdbcOperation;
 import org.hibernate.tool.schema.extract.spi.ColumnTypeInformation;
 import org.hibernate.type.JavaObjectType;
+import org.hibernate.type.descriptor.jdbc.BlobJdbcType;
+import org.hibernate.type.descriptor.jdbc.ClobJdbcType;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.descriptor.jdbc.ObjectNullAsBinaryTypeJdbcType;
 import org.hibernate.type.descriptor.jdbc.UUIDJdbcType;
-import org.hibernate.type.descriptor.jdbc.VarbinaryJdbcType;
-import org.hibernate.type.descriptor.jdbc.VarcharJdbcType;
 import org.hibernate.type.descriptor.jdbc.spi.JdbcTypeRegistry;
 import org.hibernate.type.descriptor.sql.internal.DdlTypeImpl;
 import org.hibernate.type.descriptor.sql.internal.NamedNativeEnumDdlTypeImpl;
@@ -85,8 +77,18 @@ import org.hibernate.type.descriptor.sql.internal.Scale6IntervalSecondDdlType;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 import org.hibernate.type.spi.TypeConfiguration;
 
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.TemporalType;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.lang.Integer.parseInt;
 import static org.hibernate.cfg.DialectSpecificSettings.COCKROACH_VERSION_STRING;
@@ -155,7 +157,9 @@ public class CockroachDialect extends Dialect {
 
 	public CockroachDialect(DialectResolutionInfo info, String versionString) {
 		this(
-				versionString != null ? parseVersion( versionString ) : info.makeCopyOrDefault( MINIMUM_VERSION ),
+				versionString == null
+						? info.makeCopyOrDefault( MINIMUM_VERSION )
+						: parseVersion( versionString ),
 				PostgreSQLDriverKind.determineKind( info )
 		);
 		registerKeywords( info );
@@ -178,11 +182,12 @@ public class CockroachDialect extends Dialect {
 
 	protected static DatabaseVersion fetchDataBaseVersion(DialectResolutionInfo info) {
 		String versionString = null;
-		if ( info.getDatabaseMetadata() != null ) {
-			try ( java.sql.Statement s = info.getDatabaseMetadata().getConnection().createStatement() ) {
-				final ResultSet rs = s.executeQuery( "SELECT version()" );
-				if ( rs.next() ) {
-					versionString = rs.getString( 1 );
+		final DatabaseMetaData databaseMetadata = info.getDatabaseMetadata();
+		if ( databaseMetadata != null ) {
+			try ( var statement = databaseMetadata.getConnection().createStatement() ) {
+				final ResultSet resultSet = statement.executeQuery( "SELECT version()" );
+				if ( resultSet.next() ) {
+					versionString = resultSet.getString( 1 );
 				}
 			}
 			catch (SQLException ex) {
@@ -376,9 +381,9 @@ public class CockroachDialect extends Dialect {
 		}
 
 		// Force Blob binding to byte[] for CockroachDB
-		jdbcTypeRegistry.addDescriptor( Types.BLOB, VarbinaryJdbcType.INSTANCE );
-		jdbcTypeRegistry.addDescriptor( Types.CLOB, VarcharJdbcType.INSTANCE );
-		jdbcTypeRegistry.addDescriptor( Types.NCLOB, VarcharJdbcType.INSTANCE );
+		jdbcTypeRegistry.addDescriptor( Types.BLOB, BlobJdbcType.MATERIALIZED );
+		jdbcTypeRegistry.addDescriptor( Types.CLOB, ClobJdbcType.MATERIALIZED );
+		jdbcTypeRegistry.addDescriptor( Types.NCLOB, ClobJdbcType.MATERIALIZED );
 
 		// The next two contributions are the same as for Postgresql
 		typeContributions.contributeJdbcType( ObjectNullAsBinaryTypeJdbcType.INSTANCE );
@@ -399,9 +404,10 @@ public class CockroachDialect extends Dialect {
 
 	@Override
 	public void initializeFunctionRegistry(FunctionContributions functionContributions) {
-		super.initializeFunctionRegistry(functionContributions);
+		super.initializeFunctionRegistry( functionContributions );
 
-		final CommonFunctionFactory functionFactory = new CommonFunctionFactory(functionContributions);
+		final var functionFactory = new CommonFunctionFactory( functionContributions );
+
 		functionFactory.ascii();
 		functionFactory.char_chr();
 		functionFactory.overlay();
@@ -896,6 +902,11 @@ public class CockroachDialect extends Dialect {
 	}
 
 	@Override
+	public LockingSupport getLockingSupport() {
+		return CockroachLockingSupport.COCKROACH_LOCKING_SUPPORT;
+	}
+
+	@Override
 	public String getForUpdateString(String aliases) {
 		return getForUpdateString() + " of " + aliases;
 	}
@@ -907,54 +918,47 @@ public class CockroachDialect extends Dialect {
 
 	@Override
 	public String getForUpdateString(String aliases, LockOptions lockOptions) {
-		// Parent's implementation for (aliases, lockOptions) ignores aliases.
-		if ( aliases.isEmpty() ) {
-			final LockMode lockMode = lockOptions.getLockMode();
-			for ( Map.Entry<String, LockMode> entry : lockOptions.getAliasSpecificLocks() ) {
-				// seek the highest lock mode
-				if ( entry.getValue().greaterThan( lockMode ) ) {
-					aliases = entry.getKey();
-				}
-			}
-		}
-		LockMode lockMode = lockOptions.getAliasSpecificLockMode( aliases );
-		if (lockMode == null ) {
-			lockMode = lockOptions.getLockMode();
-		}
+		final LockMode lockMode = lockOptions.getLockMode();
 		return switch (lockMode) {
-			case PESSIMISTIC_READ -> getReadLockString( aliases, lockOptions.getTimeOut() );
-			case PESSIMISTIC_WRITE -> getWriteLockString( aliases, lockOptions.getTimeOut() );
+			case PESSIMISTIC_READ -> getReadLockString( aliases, lockOptions.getTimeout() );
+			case PESSIMISTIC_WRITE -> getWriteLockString( aliases, lockOptions.getTimeout() );
 			case UPGRADE_NOWAIT, PESSIMISTIC_FORCE_INCREMENT -> getForUpdateNowaitString( aliases );
 			case UPGRADE_SKIPLOCKED -> getForUpdateSkipLockedString( aliases );
 			default -> "";
 		};
 	}
 
+	private String withTimeout(String lockString, Timeout timeout) {
+		return withTimeout( lockString, timeout.milliseconds() );
+	}
+
 	private String withTimeout(String lockString, int timeout) {
+		// todo (db-locking) : see notes on `#supportsNoWait` and `#supportsSkipLocked`.
+		//  	not sure why we call those here.
 		return switch (timeout) {
-			case LockOptions.NO_WAIT -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case LockOptions.SKIP_LOCKED -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
+			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
 			default -> lockString;
 		};
 	}
 
 	@Override
-	public String getWriteLockString(int timeout) {
+	public String getWriteLockString(Timeout timeout) {
 		return withTimeout( getForUpdateString(), timeout );
 	}
 
 	@Override
-	public String getWriteLockString(String aliases, int timeout) {
+	public String getWriteLockString(String aliases, Timeout timeout) {
 		return withTimeout( getForUpdateString( aliases ), timeout );
 	}
 
 	@Override
-	public String getReadLockString(int timeout) {
+	public String getReadLockString(Timeout timeout) {
 		return withTimeout( " for share", timeout );
 	}
 
 	@Override
-	public String getReadLockString(String aliases, int timeout) {
+	public String getReadLockString(String aliases, Timeout timeout) {
 		return withTimeout( " for share of " + aliases, timeout );
 	}
 
@@ -987,11 +991,6 @@ public class CockroachDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsOuterJoinForUpdate() {
-		return false;
-	}
-
-	@Override
 	public boolean useInputStreamToInsertBlob() {
 		return false;
 	}
@@ -1017,29 +1016,8 @@ public class CockroachDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsNoWait() {
-		return true;
-	}
-
-	@Override
-	public boolean supportsWait() {
-		return false;
-	}
-
-	@Override
-	public boolean supportsSkipLocked() {
-		// See https://www.cockroachlabs.com/docs/stable/select-for-update.html#wait-policies
-		return false;
-	}
-
-	@Override
 	public FunctionalDependencyAnalysisSupport getFunctionalDependencyAnalysisSupport() {
 		return FunctionalDependencyAnalysisSupportImpl.TABLE_REFERENCE;
-	}
-
-	@Override
-	public RowLockStrategy getWriteRowLockStrategy() {
-		return RowLockStrategy.TABLE;
 	}
 
 	@Override
@@ -1050,15 +1028,15 @@ public class CockroachDialect extends Dialect {
 	}
 
 	@Override
-	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData databaseMetaData)
+	public IdentifierHelper buildIdentifierHelper(IdentifierHelperBuilder builder, DatabaseMetaData metadata)
 			throws SQLException {
 
-		if ( databaseMetaData == null ) {
+		if ( metadata == null ) {
 			builder.setUnquotedCaseStrategy( IdentifierCaseStrategy.LOWER );
 			builder.setQuotedCaseStrategy( IdentifierCaseStrategy.MIXED );
 		}
 
-		return super.buildIdentifierHelper( builder, databaseMetaData );
+		return super.buildIdentifierHelper( builder, metadata );
 	}
 
 	@Override
@@ -1183,4 +1161,24 @@ public class CockroachDialect extends Dialect {
 		return false;
 	}
 
+
+	@Override
+	public String getWriteLockString(int timeout) {
+		return withTimeout( getForUpdateString(), timeout );
+	}
+
+	@Override
+	public String getWriteLockString(String aliases, int timeout) {
+		return withTimeout( getForUpdateString( aliases ), timeout );
+	}
+
+	@Override
+	public String getReadLockString(int timeout) {
+		return withTimeout( " for share", timeout );
+	}
+
+	@Override
+	public String getReadLockString(String aliases, int timeout) {
+		return withTimeout( " for share of " + aliases, timeout );
+	}
 }

@@ -7,6 +7,7 @@ package org.hibernate.orm.test.typeoverride;
 import java.sql.Types;
 
 import org.hibernate.boot.MetadataBuilder;
+import org.hibernate.community.dialect.GaussDBDialect;
 import org.hibernate.dialect.CockroachDialect;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.HANADialect;
@@ -63,6 +64,12 @@ public class TypeOverrideTest extends BaseSessionFactoryFunctionalTest {
 					jdbcTypeRegistry.getDescriptor( Types.BLOB )
 			);
 		}
+		else if ( GaussDBDialect.class.isInstance( dialect ) ) {
+			assertSame(
+					BlobJdbcType.BLOB_BINDING,
+					jdbcTypeRegistry.getDescriptor( Types.BLOB )
+			);
+		}
 		else if ( SybaseDialect.class.isInstance( dialect ) ) {
 			assertSame(
 					BlobJdbcType.PRIMITIVE_ARRAY_BINDING,
@@ -85,10 +92,7 @@ public class TypeOverrideTest extends BaseSessionFactoryFunctionalTest {
 
 	@AfterEach
 	public void tearDown() {
-		inTransaction(
-				session ->
-						session.createQuery( "delete from Entity" ).executeUpdate()
-		);
+		sessionFactory().getSchemaManager().truncate();
 	}
 
 	@Test

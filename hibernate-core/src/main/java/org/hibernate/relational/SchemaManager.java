@@ -19,7 +19,7 @@ import org.hibernate.Incubating;
  * {@link jakarta.persistence.SchemaManager}, which it now inherits,
  * with a minor change to the naming of its operations. It is retained
  * for backward compatibility and as a place to define additional
- * functionality such as {@link #populate()}.
+ * functionality such as {@link #populate} and {@link #forSchema}.
  *
  * @since 6.2
  * @author Gavin King
@@ -71,6 +71,11 @@ public interface SchemaManager extends jakarta.persistence.SchemaManager {
 	 * load script}.
 	 * <p>
 	 * Programmatic way to run {@link org.hibernate.tool.schema.spi.SchemaTruncator}.
+	 * <p>
+	 * This operation does not affect the {@linkplain org.hibernate.Cache second-level cache}.
+	 * Therefore, after calling {@code truncate()}, it might be necessary to also call
+	 * {@link org.hibernate.Cache#evictAllRegions} to clean up data held in the second-level
+	 * cache.
 	 *
 	 * @apiNote This operation is a synonym for {@link #truncate}.
 	 */
@@ -89,4 +94,28 @@ public interface SchemaManager extends jakarta.persistence.SchemaManager {
 	 */
 	@Incubating
 	void populate();
+
+	/**
+	 * Obtain an instance which targets the given schema.
+	 * <p>
+	 * This is especially useful when using multiple schemas, for example, in
+	 * {@linkplain org.hibernate.cfg.MultiTenancySettings#MULTI_TENANT_SCHEMA_MAPPER
+	 * schema-based multitenancy}.
+	 *
+	 * @param schemaName The name of the schema to target
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	SchemaManager forSchema(String schemaName);
+
+	/**
+	 * Obtain an instance which targets the given catalog.
+	 *
+	 * @param catalogName The name of the catalog to target
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	SchemaManager forCatalog(String catalogName);
 }

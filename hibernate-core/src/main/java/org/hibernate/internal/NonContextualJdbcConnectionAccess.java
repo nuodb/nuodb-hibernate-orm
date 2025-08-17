@@ -38,17 +38,13 @@ public class NonContextualJdbcConnectionAccess implements JdbcConnectionAccess, 
 	@Override
 	public Connection obtainConnection() throws SQLException {
 		final EventMonitor eventMonitor = session.getEventMonitor();
-		final DiagnosticEvent jdbcConnectionAcquisitionEvent = eventMonitor.beginJdbcConnectionAcquisitionEvent();
+		final DiagnosticEvent connectionAcquisitionEvent = eventMonitor.beginJdbcConnectionAcquisitionEvent();
 		try {
 			listener.jdbcConnectionAcquisitionStart();
 			return connectionProvider.getConnection();
 		}
 		finally {
-			eventMonitor.completeJdbcConnectionAcquisitionEvent(
-					jdbcConnectionAcquisitionEvent,
-					session,
-					null
-			);
+			eventMonitor.completeJdbcConnectionAcquisitionEvent( connectionAcquisitionEvent, session, null );
 			listener.jdbcConnectionAcquisitionEnd();
 		}
 	}
@@ -56,13 +52,13 @@ public class NonContextualJdbcConnectionAccess implements JdbcConnectionAccess, 
 	@Override
 	public void releaseConnection(Connection connection) throws SQLException {
 		final EventMonitor eventMonitor = session.getEventMonitor();
-		final DiagnosticEvent jdbcConnectionReleaseEvent = eventMonitor.beginJdbcConnectionReleaseEvent();
+		final DiagnosticEvent connectionReleaseEvent = eventMonitor.beginJdbcConnectionReleaseEvent();
 		try {
 			listener.jdbcConnectionReleaseStart();
 			connectionProvider.closeConnection( connection );
 		}
 		finally {
-			eventMonitor.completeJdbcConnectionReleaseEvent( jdbcConnectionReleaseEvent, session, null );
+			eventMonitor.completeJdbcConnectionReleaseEvent( connectionReleaseEvent, session, null );
 			listener.jdbcConnectionReleaseEnd();
 		}
 	}

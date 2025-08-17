@@ -20,7 +20,6 @@ import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import javax.naming.Reference;
 import javax.naming.StringRefAddr;
@@ -83,14 +82,11 @@ import org.hibernate.integrator.spi.Integrator;
 import org.hibernate.integrator.spi.IntegratorService;
 import org.hibernate.jpa.internal.ExceptionMapperLegacyJpaImpl;
 import org.hibernate.jpa.internal.PersistenceUnitUtilImpl;
-import org.hibernate.mapping.Collection;
 import org.hibernate.mapping.GeneratorSettings;
-import org.hibernate.mapping.PersistentClass;
 import org.hibernate.mapping.RootClass;
 import org.hibernate.metamodel.MappingMetamodel;
 import org.hibernate.metamodel.RepresentationMode;
 import org.hibernate.metamodel.internal.RuntimeMetamodelsImpl;
-import org.hibernate.metamodel.mapping.JdbcMapping;
 import org.hibernate.metamodel.model.domain.EntityDomainType;
 import org.hibernate.metamodel.model.domain.internal.MappingMetamodelImpl;
 import org.hibernate.metamodel.model.domain.spi.JpaMetamodelImplementor;
@@ -227,7 +223,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			final MetadataImplementor bootMetamodel,
 			final SessionFactoryOptions options,
 			final BootstrapContext bootstrapContext) {
-		LOG.debug( "Building session factory" );
+		LOG.trace( "Building session factory" );
 		typeConfiguration = bootstrapContext.getTypeConfiguration();
 
 		sessionFactoryOptions = options;
@@ -246,7 +242,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		settings = getSettings( options, serviceRegistry );
 		maskOutSensitiveInformation( settings );
 		deprecationCheck( settings );
-		LOG.instantiatingFactory( settings );
+		LOG.instantiatingFactory( uuid, settings );
 
 		sqlStringGenerationContext = createSqlStringGenerationContext( bootMetamodel, options, jdbcServices );
 
@@ -254,23 +250,23 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 
 		jpaPersistenceUnitUtil = new PersistenceUnitUtilImpl( this );
 
-		for ( SessionFactoryObserver sessionFactoryObserver : options.getSessionFactoryObservers() ) {
+		for ( var sessionFactoryObserver : options.getSessionFactoryObservers() ) {
 			observer.addObserver( sessionFactoryObserver );
 		}
 
 		filters = new HashMap<>( bootMetamodel.getFilterDefinitions() );
 
-		final FilterDefinition tenantFilter = filters.get( TenantIdBinder.FILTER_NAME );
+		final var tenantFilter = filters.get( TenantIdBinder.FILTER_NAME );
 		if ( tenantFilter == null ) {
 			tenantIdentifierJavaType = options.getDefaultTenantIdentifierJavaType();
 		}
 		else {
-			final JdbcMapping jdbcMapping = tenantFilter.getParameterJdbcMapping( TenantIdBinder.PARAMETER_NAME );
+			final var jdbcMapping = tenantFilter.getParameterJdbcMapping( TenantIdBinder.PARAMETER_NAME );
 			assert jdbcMapping != null;
 			//noinspection unchecked
 			tenantIdentifierJavaType = jdbcMapping.getJavaTypeDescriptor();
 		}
-		for ( Map.Entry<String, FilterDefinition> filterEntry : filters.entrySet() ) {
+		for ( var filterEntry : filters.entrySet() ) {
 			if ( filterEntry.getValue().isAutoEnabled() ) {
 				autoEnabledFilters.add( filterEntry.getValue() );
 			}
@@ -283,7 +279,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		classLoaderService = serviceRegistry.requireService( ClassLoaderService.class );
 		jdbcValuesMappingProducerProvider = serviceRegistry.requireService( JdbcValuesMappingProducerProvider.class );
 
-		final IntegratorObserver integratorObserver = new IntegratorObserver();
+		final var integratorObserver = new IntegratorObserver();
 		observer.addObserver( integratorObserver );
 		try {
 			integrate( bootMetamodel, bootstrapContext, integratorObserver );
@@ -294,7 +290,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			primeSecondLevelCacheRegions( bootMetamodel );
 
 			// create the empty runtime metamodels object
-			final RuntimeMetamodelsImpl runtimeMetamodelsImpl = new RuntimeMetamodelsImpl( typeConfiguration );
+			final var runtimeMetamodelsImpl = new RuntimeMetamodelsImpl( typeConfiguration );
 			runtimeMetamodels = runtimeMetamodelsImpl;
 
 			// we build this before creating the runtime metamodels
@@ -305,7 +301,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			sqlTranslationEngine = new SqlTranslationEngineImpl( this, typeConfiguration, fetchProfiles );
 
 			// now actually create the mapping and JPA metamodels
-			final MappingMetamodelImpl mappingMetamodelImpl = new MappingMetamodelImpl( typeConfiguration, serviceRegistry );
+			final var mappingMetamodelImpl = new MappingMetamodelImpl( typeConfiguration, serviceRegistry );
 			runtimeMetamodelsImpl.setMappingMetamodel( mappingMetamodelImpl );
 			mappingMetamodelImpl.finishInitialization(
 					new ModelCreationContext( bootstrapContext, bootMetamodel, mappingMetamodelImpl, typeConfiguration ) );
@@ -361,7 +357,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			throw e;
 		}
 
-		LOG.debug( "Instantiated factory" );
+		if ( LOG.isTraceEnabled() ) {
+			LOG.trace( "Instantiated factory: " + uuid );
+		}
 	}
 
 	private EventMonitor loadEventMonitor() {
@@ -430,7 +428,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		private final ArrayList<Integrator> integrators = new ArrayList<>();
 		@Override
 		public void sessionFactoryClosed(SessionFactory factory) {
-			for ( Integrator integrator : integrators ) {
+			for ( var integrator : integrators ) {
 				integrator.disintegrate( SessionFactoryImpl.this, SessionFactoryImpl.this.serviceRegistry );
 			}
 			integrators.clear();
@@ -438,14 +436,14 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 	}
 
 	private void integrate(MetadataImplementor bootMetamodel, BootstrapContext bootstrapContext, IntegratorObserver integratorObserver) {
-		for ( Integrator integrator : serviceRegistry.requireService( IntegratorService.class ).getIntegrators() ) {
+		for ( var integrator : serviceRegistry.requireService( IntegratorService.class ).getIntegrators() ) {
 			integrator.integrate( bootMetamodel, bootstrapContext, this );
 			integratorObserver.integrators.add( integrator );
 		}
 	}
 
 	private void disintegrate(Exception startupException, IntegratorObserver integratorObserver) {
-		for ( Integrator integrator : integratorObserver.integrators ) {
+		for ( var integrator : integratorObserver.integrators ) {
 			try {
 				integrator.disintegrate( this, serviceRegistry );
 			}
@@ -458,7 +456,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 
 
 	private SessionBuilderImpl createDefaultSessionOpenOptionsIfPossible() {
-		final CurrentTenantIdentifierResolver<Object> tenantIdResolver = getCurrentTenantIdentifierResolver();
+		final var tenantIdResolver = getCurrentTenantIdentifierResolver();
 		if ( tenantIdResolver == null ) {
 			return withOptions();
 		}
@@ -481,10 +479,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		// TODO: ultimately this code can be made more efficient when we have
 		//       a better intrinsic understanding of the hierarchy as a whole
 
-		for ( PersistentClass bootEntityDescriptor : mappingMetadata.getEntityBindings() ) {
+		for ( var bootEntityDescriptor : mappingMetadata.getEntityBindings() ) {
 			final AccessType accessType =
 					AccessType.fromExternalName( bootEntityDescriptor.getCacheConcurrencyStrategy() );
-
 			if ( accessType != null ) {
 				if ( bootEntityDescriptor.isCached() ) {
 					regionConfigBuilders.computeIfAbsent(
@@ -506,8 +503,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			}
 		}
 
-		for ( Collection collection : mappingMetadata.getCollectionBindings() ) {
-			final AccessType accessType = AccessType.fromExternalName( collection.getCacheConcurrencyStrategy() );
+		for ( var collection : mappingMetadata.getCollectionBindings() ) {
+			final AccessType accessType =
+					AccessType.fromExternalName( collection.getCacheConcurrencyStrategy() );
 			if ( accessType != null ) {
 				regionConfigBuilders.computeIfAbsent(
 						collection.getCacheRegionName(),
@@ -523,7 +521,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		}
 		else {
 			regionConfigs = new HashSet<>();
-			for ( DomainDataRegionConfigImpl.Builder builder : regionConfigBuilders.values() ) {
+			for ( var builder : regionConfigBuilders.values() ) {
 				regionConfigs.add( builder.build() );
 			}
 		}
@@ -641,9 +639,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		return sqlStringGenerationContext;
 	}
 
-	@Override @SuppressWarnings({"rawtypes","unchecked"})
+	@Override
 	public <T> List<EntityGraph<? super T>> findEntityGraphsByType(Class<T> entityClass) {
-		return (List) getJpaMetamodel().findEntityGraphsByJavaType( entityClass );
+		return getJpaMetamodel().findEntityGraphsByJavaType( entityClass );
 	}
 
 	// todo : (5.2) review synchronizationType, persistenceContextType, transactionType usage
@@ -733,12 +731,12 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 
 	@Override
 	public RootGraph<Map<String, ?>> createGraphForDynamicEntity(String entityName) {
-		final EntityDomainType<?> entity = getJpaMetamodel().entity( entityName );
+		final var entity = getJpaMetamodel().entity( entityName );
 		if ( entity.getRepresentationMode() != RepresentationMode.MAP ) {
 			throw new IllegalArgumentException( "Entity '" + entityName + "' is not a dynamic entity" );
 		}
 		@SuppressWarnings("unchecked") //Safe, because we just checked
-		final EntityDomainType<Map<String, ?>> dynamicEntity = (EntityDomainType<Map<String, ?>>) entity;
+		final var dynamicEntity = (EntityDomainType<Map<String, ?>>) entity;
 		return new RootGraphImpl<>( null, dynamicEntity );
 	}
 
@@ -773,7 +771,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 	@Override
 	public Reference getReference() {
 		// from javax.naming.Referenceable
-		LOG.debug( "Returning a Reference to the factory" );
+		LOG.trace( "Returning a Reference to the factory" );
 		return new Reference(
 				SessionFactoryImpl.class.getName(),
 				new StringRefAddr( "uuid", getUuid() ),
@@ -812,7 +810,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		}
 
 		try {
-			LOG.closingFactory();
+			LOG.closingFactory( getUuid() );
 			observer.sessionFactoryClosing( this );
 
 		// NOTE : the null checks below handle cases where close is called from
@@ -928,7 +926,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 
 	@Override
 	public <T> void addNamedEntityGraph(String graphName, EntityGraph<T> entityGraph) {
-		getMappingMetamodel().addNamedEntityGraph( graphName, (RootGraphImplementor<T>) entityGraph );
+		getJpaMetamodel().addNamedEntityGraph( graphName, (RootGraphImplementor<T>) entityGraph );
 	}
 
 	@Override
@@ -1106,7 +1104,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		}
 
 		// then check the Session-scoped interceptor prototype
-		final Supplier<? extends Interceptor> statelessInterceptorImplementorSupplier =
+		final var statelessInterceptorImplementorSupplier =
 				options.getStatelessInterceptorImplementorSupplier();
 		if ( statelessInterceptorImplementorSupplier != null ) {
 			return statelessInterceptorImplementorSupplier.get();
@@ -1154,7 +1152,7 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			subselectFetchEnabled = sessionFactoryOptions.isSubselectFetchEnabled();
 			identifierRollback = sessionFactoryOptions.isIdentifierRollbackEnabled();
 
-			final CurrentTenantIdentifierResolver<Object> currentTenantIdentifierResolver =
+			final var currentTenantIdentifierResolver =
 					sessionFactory.getCurrentTenantIdentifierResolver();
 			if ( currentTenantIdentifierResolver != null ) {
 				tenantIdentifier = currentTenantIdentifierResolver.resolveCurrentTenantIdentifier();
@@ -1580,7 +1578,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 			throws InvalidObjectException{
 		final SessionFactory uuidResult = SessionFactoryRegistry.INSTANCE.getSessionFactory( uuid );
 		if ( uuidResult != null ) {
-			LOG.debug( "Resolved factory by UUID: " + uuid );
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace( "Resolved factory by UUID: " + uuid );
+			}
 			return uuidResult;
 		}
 
@@ -1589,7 +1589,9 @@ public class SessionFactoryImpl implements SessionFactoryImplementor {
 		if ( name != null ) {
 			final SessionFactory namedResult = SessionFactoryRegistry.INSTANCE.getNamedSessionFactory( name );
 			if ( namedResult != null ) {
-				LOG.debug( "Resolved factory by name: " + name );
+				if ( LOG.isTraceEnabled() ) {
+					LOG.trace( "Resolved factory by name: " + name );
+				}
 				return namedResult;
 			}
 		}

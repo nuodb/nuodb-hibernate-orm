@@ -352,7 +352,11 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// Paths
 
-	<P, F> JpaExpression<F> fk(Path<P> path);
+	JpaExpression<?> id(Path<?> path);
+
+	JpaExpression<?> version(Path<?> path);
+
+	JpaExpression<?> fk(Path<?> path);
 
 	@Override
 	<X, T extends X> JpaPath<T> treat(Path<X> path, Class<T> type);
@@ -1119,7 +1123,7 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 	 * @return ordering corresponding to the CTE attribute
 	 */
 	@Incubating
-	JpaSearchOrder search(JpaCteCriteriaAttribute cteAttribute, SortDirection sortOrder, NullPrecedence nullPrecedence);
+	JpaSearchOrder search(JpaCteCriteriaAttribute cteAttribute, SortDirection sortOrder, Nulls nullPrecedence);
 
 	/**
 	 * Create a search ordering based on the sort order of the value of the CTE attribute.
@@ -2176,30 +2180,30 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			Expression<String> separator);
 
 	/**
-	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
-	<T> JpaExpression<T> mode(Expression<T> sortExpression, SortDirection sortOrder, NullPrecedence nullPrecedence);
+	<T> JpaExpression<T> mode(Expression<T> sortExpression, SortDirection sortOrder, Nulls nullPrecedence);
 
 	/**
-	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> mode(
 			JpaPredicate filter,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #mode(JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> mode(
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
 	 * Create a {@code mode} ordered set-aggregate function expression.
@@ -2221,20 +2225,20 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileCont(
 			Expression<? extends Number> argument,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileCont(
@@ -2242,10 +2246,10 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaPredicate filter,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileCont(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileCont(
@@ -2253,7 +2257,7 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
 	 * Create a {@code percentile_cont} ordered set-aggregate function expression.
@@ -2276,20 +2280,20 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileDisc(
 			Expression<? extends Number> argument,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileDisc(
@@ -2297,10 +2301,10 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaPredicate filter,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
-	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, NullPrecedence)
+	 * @see #percentileDisc(Expression, JpaPredicate, JpaWindow, Expression, SortDirection, Nulls)
 	 */
 	@Incubating
 	<T> JpaExpression<T> percentileDisc(
@@ -2308,7 +2312,7 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
 	 * Create a {@code percentile_disc} ordered set-aggregate function expression.
@@ -2331,7 +2335,7 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 			JpaWindow window,
 			Expression<T> sortExpression,
 			SortDirection sortOrder,
-			NullPrecedence nullPrecedence);
+			Nulls nullPrecedence);
 
 	/**
 	 * @see #rank(JpaOrder, JpaPredicate, JpaWindow, Expression...)
@@ -2778,6 +2782,43 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 	 */
 	@Incubating
 	JpaExpression<String> arrayToString(Expression<? extends Object[]> arrayExpression, String separator);
+
+	/**
+	 * Concatenates the array elements with a separator, as specified by the arguments. Null array elements are replaced
+	 * with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> arrayToString(Expression<? extends Object[]> arrayExpression, Expression<String> separatorExpression, Expression<String> defaultExpression);
+
+	/**
+	 * Concatenates the array elements with a separator, as specified by the arguments. Null array elements are replaced
+	 * with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> arrayToString(Expression<? extends Object[]> arrayExpression, Expression<String> separatorExpression, String defaultValue);
+
+	/**
+	 * Concatenates the array elements with a separator, as specified by the arguments. Null array elements are replaced
+	 * with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> arrayToString(Expression<? extends Object[]> arrayExpression, String separator, Expression<String> defaultExpression);
+
+	/**
+	 * Concatenates the array elements with a separator, as specified by the arguments. Null array elements are replaced
+	 * with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> arrayToString(Expression<? extends Object[]> arrayExpression, String separator, String defaultValue);
+
 	/**
 	 * Whether an array contains an element.
 	 *
@@ -3400,6 +3441,42 @@ public interface HibernateCriteriaBuilder extends CriteriaBuilder {
 	 */
 	@Incubating
 	JpaExpression<String> collectionToString(Expression<? extends Collection<?>> collectionExpression, String separator);
+
+	/**
+	 * Concatenates the collection elements with a separator, as specified by the arguments. Null collection elements
+	 * are replaced with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> collectionToString(Expression<? extends Collection<?>> collectionExpression, Expression<String> separatorExpression, Expression<String> defaultExpression);
+
+	/**
+	 * Concatenates the collection elements with a separator, as specified by the arguments. Null collection elements
+	 * are replaced with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> collectionToString(Expression<? extends Collection<?>> collectionExpression, Expression<String> separatorExpression, String defaultValue);
+
+	/**
+	 * Concatenates the collection elements with a separator, as specified by the arguments. Null collection elements
+	 * are replaced with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> collectionToString(Expression<? extends Collection<?>> collectionExpression, String separator, Expression<String> defaultExpression);
+
+	/**
+	 * Concatenates the collection elements with a separator, as specified by the arguments. Null collection elements
+	 * are replaced with the given default element.
+	 *
+	 * @since 7.1
+	 */
+	@Incubating
+	JpaExpression<String> collectionToString(Expression<? extends Collection<?>> collectionExpression, String separator, String defaultValue);
 
 	/**
 	 * Whether a basic collection contains an element.

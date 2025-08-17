@@ -17,6 +17,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
+import static org.hibernate.processor.util.Constants.SPRING_COMPONENT;
 import static org.hibernate.processor.util.TypeUtils.getGeneratedClassFullyQualifiedName;
 import static org.hibernate.processor.util.TypeUtils.isMemberType;
 
@@ -93,6 +95,9 @@ public final class ClassWriter {
 
 			pw.println( entity.javadoc() );
 
+			if ( context.addComponentAnnotation() && entity.isInjectable() ) {
+				pw.println( writeComponentAnnotation( entity ) );
+			}
 			if ( context.addDependentAnnotation() && entity.isInjectable() ) {
 				pw.println( writeScopeAnnotation( entity ) );
 			}
@@ -190,9 +195,12 @@ public final class ClassWriter {
 		else if (argument instanceof AnnotationMirror childAnnotation) {
 			printAnnotation( childAnnotation, pw );
 		}
+		else if (argument instanceof TypeMirror) {
+			pw.print(argument);
+			pw.print(".class");
+		}
 		else if (argument instanceof List) {
-			final List<? extends AnnotationValue> list =
-					(List<? extends AnnotationValue>) argument;
+			final var list = (List<? extends AnnotationValue>) argument;
 			pw.print('{');
 			boolean first = true;
 			for (AnnotationValue listedValue : list) {
@@ -308,6 +316,10 @@ public final class ClassWriter {
 
 	private static String writeScopeAnnotation(Metamodel entity) {
 		return "@" + entity.importType( entity.scope() );
+	}
+
+	private static String writeComponentAnnotation(Metamodel entity) {
+		return "@" + entity.importType( SPRING_COMPONENT );
 	}
 
 	private static String writeStaticMetaModelAnnotation(Metamodel entity) {

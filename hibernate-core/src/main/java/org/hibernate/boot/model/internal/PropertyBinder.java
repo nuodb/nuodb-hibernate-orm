@@ -32,6 +32,7 @@ import org.hibernate.AssertionFailure;
 import org.hibernate.MappingException;
 import org.hibernate.annotations.Any;
 import org.hibernate.annotations.AttributeBinderType;
+import org.hibernate.annotations.CascadeType;
 import org.hibernate.annotations.CompositeType;
 import org.hibernate.annotations.IdGeneratorType;
 import org.hibernate.annotations.Immutable;
@@ -122,7 +123,7 @@ public class PropertyBinder {
 	private Component componentElement;
 	private boolean insertable = true;
 	private boolean updatable = true;
-	private String cascade;
+	private EnumSet<CascadeType> cascadeTypes;
 	private BasicValueBinder basicValueBinder;
 	private ClassDetails declaringClass;
 	private boolean declaringClassSet;
@@ -199,8 +200,8 @@ public class PropertyBinder {
 		this.componentElement = componentElement;
 	}
 
-	public void setCascade(String cascadeStrategy) {
-		this.cascade = cascadeStrategy;
+	public void setCascade(EnumSet<CascadeType> cascadeTypes) {
+		this.cascadeTypes = cascadeTypes;
 	}
 
 	public void setBuildingContext(MetadataBuildingContext buildingContext) {
@@ -438,7 +439,7 @@ public class PropertyBinder {
 		property.setValue( value );
 		property.setLazy( lazy );
 		property.setLazyGroup( lazyGroup );
-		property.setCascade( cascade );
+		property.setCascade( cascadeTypes );
 		property.setPropertyAccessorName( accessType.getType() );
 		property.setReturnedClassName( returnedClassName );
 //		property.setPropertyAccessStrategy( propertyAccessStrategy );
@@ -470,7 +471,7 @@ public class PropertyBinder {
 			updatable = false;
 		}
 		property.setInsertable( insertable );
-		property.setUpdateable( updatable );
+		property.setUpdatable( updatable );
 	}
 
 	private void handleOptional(Property property) {
@@ -724,8 +725,7 @@ public class PropertyBinder {
 						isComponentEmbedded,
 						inSecondPass,
 						context,
-						inheritanceStatePerClass,
-						property
+						inheritanceStatePerClass
 				);
 			}
 		}
@@ -755,8 +755,9 @@ public class PropertyBinder {
 			boolean isComponentEmbedded,
 			boolean inSecondPass,
 			MetadataBuildingContext context,
-			Map<ClassDetails, InheritanceState> inheritanceStatePerClass,
-			MemberDetails property) {
+			Map<ClassDetails, InheritanceState> inheritanceStatePerClass) {
+
+		final MemberDetails property = inferredData.getAttributeMember();
 
 		if ( isPropertyOfRegularEmbeddable( propertyHolder, isComponentEmbedded )
 				&& property.hasDirectAnnotationUsage(Id.class)) {
@@ -776,7 +777,6 @@ public class PropertyBinder {
 				isIdentifierMapper,
 				context,
 				inheritanceStatePerClass,
-				property,
 				attributeTypeDetails
 		);
 
@@ -797,7 +797,6 @@ public class PropertyBinder {
 				isIdentifierMapper,
 				isComponentEmbedded,
 				inSecondPass,
-				property,
 				attributeTypeDetails.determineRawClass(),
 				columnsBuilder
 		);
@@ -811,8 +810,8 @@ public class PropertyBinder {
 			boolean isIdentifierMapper,
 			MetadataBuildingContext context,
 			Map<ClassDetails, InheritanceState> inheritanceStatePerClass,
-			MemberDetails property,
 			TypeDetails attributeTypeDetails) {
+		final MemberDetails property = inferredData.getAttributeMember();
 		final PropertyBinder propertyBinder = new PropertyBinder();
 		propertyBinder.setName( inferredData.getPropertyName() );
 		propertyBinder.setReturnedClassName( inferredData.getTypeName() );
@@ -846,9 +845,9 @@ public class PropertyBinder {
 			boolean isIdentifierMapper,
 			boolean isComponentEmbedded,
 			boolean inSecondPass,
-			MemberDetails property,
 			ClassDetails returnedClass,
 			ColumnsBuilder columnsBuilder) {
+		final MemberDetails property = inferredData.getAttributeMember();
 		if ( isVersion( property ) ) {
 			bindVersionProperty(
 					propertyHolder,
@@ -860,11 +859,11 @@ public class PropertyBinder {
 		else if ( isManyToOne( property ) ) {
 			bindManyToOne(
 					propertyHolder,
+					nullability,
 					inferredData,
 					isIdentifierMapper,
 					inSecondPass,
 					buildingContext,
-					property,
 					columnsBuilder.getJoinColumns(),
 					this
 			);
@@ -872,11 +871,11 @@ public class PropertyBinder {
 		else if ( isOneToOne( property ) ) {
 			bindOneToOne(
 					propertyHolder,
+					nullability,
 					inferredData,
 					isIdentifierMapper,
 					inSecondPass,
 					buildingContext,
-					property,
 					columnsBuilder.getJoinColumns(),
 					this
 			);
@@ -889,7 +888,6 @@ public class PropertyBinder {
 					entityBinder,
 					isIdentifierMapper,
 					buildingContext,
-					property,
 					columnsBuilder.getJoinColumns()
 			);
 		}
@@ -902,7 +900,6 @@ public class PropertyBinder {
 					isIdentifierMapper,
 					buildingContext,
 					inheritanceStatePerClass,
-					property,
 					columnsBuilder.getJoinColumns()
 			);
 		}
@@ -916,7 +913,6 @@ public class PropertyBinder {
 					entityBinder,
 					isIdentifierMapper,
 					isComponentEmbedded,
-					property,
 					columnsBuilder,
 					columnsBuilder.getColumns(),
 					returnedClass
@@ -1001,10 +997,10 @@ public class PropertyBinder {
 			EntityBinder entityBinder,
 			boolean isIdentifierMapper,
 			boolean isComponentEmbedded,
-			MemberDetails property,
 			ColumnsBuilder columnsBuilder,
 			AnnotatedColumns columns,
 			ClassDetails returnedClass) {
+		final MemberDetails property = inferredData.getAttributeMember();
 
 		// overrides from @MapsId or @IdClass if needed
 		final PropertyData overridingProperty =
@@ -1029,7 +1025,6 @@ public class PropertyBinder {
 				isComposite,
 				isIdentifierMapper,
 				isComponentEmbedded,
-				property,
 				columns,
 				returnedClass,
 				actualColumns,
@@ -1074,7 +1069,6 @@ public class PropertyBinder {
 			boolean isComposite,
 			boolean isIdentifierMapper,
 			boolean isComponentEmbedded,
-			MemberDetails property,
 			AnnotatedColumns columns,
 			ClassDetails returnedClass,
 			AnnotatedColumns actualColumns,
@@ -1083,6 +1077,7 @@ public class PropertyBinder {
 		final Class<? extends CompositeUserType<?>> compositeUserType =
 				resolveCompositeUserType( inferredData, buildingContext );
 
+		final MemberDetails property = inferredData.getAttributeMember();
 		if ( isComposite || compositeUserType != null ) {
 			if ( property.isArray() && property.getElementType() != null
 					&& isEmbedded( property, property.getElementType() ) ) {

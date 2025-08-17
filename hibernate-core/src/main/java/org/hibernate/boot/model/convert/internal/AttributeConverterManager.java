@@ -49,7 +49,7 @@ public class AttributeConverterManager implements ConverterAutoApplyHandler {
 
 	public void addConverter(ConverterDescriptor<?,?> descriptor) {
 		if ( log.isTraceEnabled() ) {
-			log.tracef( "Starting AttributeConverterManager#addConverter : `%s`",
+			log.tracef( "Registering AttributeConverter '%s'",
 					descriptor.getAttributeConverterClass().getName() );
 		}
 
@@ -59,7 +59,7 @@ public class AttributeConverterManager implements ConverterAutoApplyHandler {
 			if ( registeredConversion != null ) {
 				// we can skip registering the converter, the RegisteredConversion will always take precedence
 				if ( log.isDebugEnabled() ) {
-					log.debugf( "Skipping registration of discovered AttributeConverter `%s` for auto-apply",
+					log.debugf( "Skipping registration of discovered AttributeConverter '%s' for auto-apply",
 							descriptor.getAttributeConverterClass().getName() );
 				}
 				return;
@@ -112,10 +112,9 @@ public class AttributeConverterManager implements ConverterAutoApplyHandler {
 		// see if we have a matching entry in `attributeConverterDescriptorsByClass`.
 		// if so, remove it.  The conversion being registered will always take precedence
 		if ( attributeConverterDescriptorsByClass != null ) {
-			final ConverterDescriptor<?,?> removed =
-					attributeConverterDescriptorsByClass.remove( conversion.getConverterType() );
+			final var removed = attributeConverterDescriptorsByClass.remove( conversion.getConverterType() );
 			if ( removed != null && log.isDebugEnabled() ) {
-				log.debugf( "Removed potentially auto-applicable converter `%s` due to @ConverterRegistration",
+				log.debugf( "Removed potentially auto-applicable converter '%s' due to @ConverterRegistration",
 						removed.getAttributeConverterClass().getName() );
 			}
 		}
@@ -228,8 +227,8 @@ public class AttributeConverterManager implements ConverterAutoApplyHandler {
 			ConverterDescriptor<?,?>> matcher) {
 		final List<ConverterDescriptor<?,?>> matches = new ArrayList<>();
 		for ( ConverterDescriptor<?,?> descriptor : converterDescriptors() ) {
-			if ( log.isDebugEnabled() ) {
-				log.debugf(
+			if ( log.isTraceEnabled() ) {
+				log.tracef(
 						"Checking auto-apply AttributeConverter [%s] (domain-type=%s) for match against %s : %s.%s (type=%s)",
 						descriptor.getAttributeConverterClass().getName(),
 						descriptor.getDomainValueResolvedType().getSignature(),

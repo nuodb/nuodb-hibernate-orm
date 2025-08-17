@@ -18,7 +18,10 @@ import jakarta.persistence.CacheStoreMode;
 import jakarta.persistence.FlushModeType;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Parameter;
+import jakarta.persistence.PessimisticLockScope;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.Timeout;
+import jakarta.persistence.metamodel.Type;
 
 import org.hibernate.CacheMode;
 import org.hibernate.FlushMode;
@@ -29,17 +32,18 @@ import org.hibernate.engine.spi.LoadQueryInfluencers;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.graph.spi.AppliedGraph;
 import org.hibernate.internal.util.collections.IdentitySet;
-import org.hibernate.query.BindableType;
 import org.hibernate.query.KeyedPage;
 import org.hibernate.query.Order;
 import org.hibernate.query.Page;
 import org.hibernate.query.QueryParameter;
 import org.hibernate.query.ResultListTransformer;
+import org.hibernate.query.SelectionQuery;
 import org.hibernate.query.TupleTransformer;
 import org.hibernate.query.criteria.internal.NamedCriteriaQueryMementoImpl;
 import org.hibernate.query.hql.internal.NamedHqlQueryMementoImpl;
 import org.hibernate.query.internal.DelegatingDomainQueryExecutionContext;
 import org.hibernate.query.internal.ParameterMetadataImpl;
+import org.hibernate.type.BindableType;
 import org.hibernate.query.spi.DomainQueryExecutionContext;
 import org.hibernate.query.spi.HqlInterpretation;
 import org.hibernate.query.spi.MutableQueryOptions;
@@ -70,6 +74,7 @@ import static org.hibernate.jpa.HibernateHints.HINT_CACHE_MODE;
 import static org.hibernate.jpa.HibernateHints.HINT_CACHE_REGION;
 import static org.hibernate.jpa.HibernateHints.HINT_FETCH_SIZE;
 import static org.hibernate.jpa.HibernateHints.HINT_FOLLOW_ON_LOCKING;
+import static org.hibernate.jpa.HibernateHints.HINT_FOLLOW_ON_STRATEGY;
 import static org.hibernate.jpa.HibernateHints.HINT_READ_ONLY;
 import static org.hibernate.jpa.LegacySpecHints.HINT_JAVAEE_CACHE_RETRIEVE_MODE;
 import static org.hibernate.jpa.LegacySpecHints.HINT_JAVAEE_CACHE_STORE_MODE;
@@ -165,6 +170,9 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 		this( criteria, session.isCriteriaCopyTreeEnabled(), expectedResultType, session );
 	}
 
+	/**
+	 * Form used for criteria queries
+	 */
 	public SqmSelectionQueryImpl(
 			SqmSelectStatement<R> criteria,
 			boolean copyAst,
@@ -173,27 +181,10 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 		super( session );
 		this.expectedResultType = expectedResultType;
 		hql = CRITERIA_HQL_STRING;
-		if ( copyAst ) {
-			sqm = criteria.copy( SqmCopyContext.simpleContext() );
-			if ( session.isCriteriaPlanCacheEnabled() ) {
-				queryStringCacheKey = sqm.toHqlString();
-				setQueryPlanCacheable( true );
-			}
-			else {
-				queryStringCacheKey = sqm;
-			}
-		}
-		else {
-			sqm = criteria;
-			if ( session.isCriteriaPlanCacheEnabled() ) {
-				queryStringCacheKey = sqm.toHqlString();
-			}
-			else {
-				queryStringCacheKey = sqm;
-			}
-			// Cache immutable query plans by default
-			setQueryPlanCacheable( true );
-		}
+		sqm = copyAst ? criteria.copy( SqmCopyContext.simpleContext() ) : criteria;
+		queryStringCacheKey = sqm;
+		// Cache immutable query plans by default
+		setQueryPlanCacheable( !copyAst || session.isCriteriaPlanCacheEnabled() );
 
 		domainParameterXref = DomainParameterXref.from( sqm );
 		parameterMetadata = domainParameterXref.hasParameters()
@@ -567,12 +558,15 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 		return this;
 	}
 
-	/**
-	 * Specify a {@link LockMode} to apply to a specific alias defined in the query
-	 */
 	@Override
-	public SqmSelectionQuery<R> setLockMode(String alias, LockMode lockMode) {
-		super.setLockMode( alias, lockMode );
+	public SelectionQuery<R> setTimeout(Timeout timeout) {
+		super.setTimeout( timeout );
+		return this;
+	}
+
+	@Override
+	public SelectionQuery<R> setLockScope(PessimisticLockScope lockScope) {
+		super.setLockScope( lockScope );
 		return this;
 	}
 
@@ -670,6 +664,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 			hints.put( appliedGraph.getSemantic().getJpaHintName(), appliedGraph );
 		}
 
+		putIfNotNull( hints, HINT_FOLLOW_ON_STRATEGY, getQueryOptions().getLockOptions().getFollowOnStrategy() );
 		putIfNotNull( hints, HINT_FOLLOW_ON_LOCKING, getQueryOptions().getLockOptions().getFollowOnLocking() );
 	}
 
@@ -709,7 +704,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameter(String name, P value, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameter(String name, P value, Type<P> type) {
 		super.setParameter( name, value, type );
 		return this;
 	}
@@ -733,7 +728,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameter(int position, P value, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameter(int position, P value, Type<P> type) {
 		super.setParameter( position, value, type );
 		return this;
 	}
@@ -757,7 +752,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameter(QueryParameter<P> parameter, P value, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameter(QueryParameter<P> parameter, P value, Type<P> type) {
 		super.setParameter( parameter, value, type );
 		return this;
 	}
@@ -817,7 +812,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(String name, Collection<? extends P> values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(String name, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( name, values, type );
 		return this;
 	}
@@ -835,7 +830,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(String name, P[] values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(String name, P[] values, Type<P> type) {
 		super.setParameterList( name, values, type );
 		return this;
 	}
@@ -853,7 +848,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(int position, Collection<? extends P> values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(int position, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( position, values, type );
 		return this;
 	}
@@ -871,7 +866,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(int position, P[] values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(int position, P[] values, Type<P> type) {
 		super.setParameterList( position, values, type );
 		return this;
 	}
@@ -889,7 +884,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(QueryParameter<P> parameter, Collection<? extends P> values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(QueryParameter<P> parameter, Collection<? extends P> values, Type<P> type) {
 		super.setParameterList( parameter, values, type );
 		return this;
 	}
@@ -907,7 +902,7 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 	}
 
 	@Override
-	public <P> SqmSelectionQuery<R> setParameterList(QueryParameter<P> parameter, P[] values, BindableType<P> type) {
+	public <P> SqmSelectionQuery<R> setParameterList(QueryParameter<P> parameter, P[] values, Type<P> type) {
 		super.setParameterList( parameter, values, type );
 		return this;
 	}

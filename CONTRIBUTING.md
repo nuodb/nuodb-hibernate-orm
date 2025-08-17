@@ -15,10 +15,14 @@ Note that Hibernate ORM 7.0.0.Beta4 and earlier are distributed under
 To allow for potential backporting, the Hibernate team asks contributors to dual-license their contribution.
 A Pull Request template already applies the proper wording to make it easy.
 
-All contributions are subject to the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).  
-
+All contributions are subject to the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 The DCO text is available verbatim in the [dco.txt](dco.txt) file in the root directory of the ORM repository.
 
+Copyright owners are listed in [AUTHORS.txt](AUTHORS.txt).
+Contributors with a valid copyright claim can request to be added to that list
+by sending a pull request to the project's GitHub repository,
+listing at least one relevant contribution in the pull request description.
+Note: one-liner or repetitive patches may not be sufficient to claim copyright.
 
 ## Guidelines
 
@@ -108,3 +112,11 @@ It is important that this topic branch of your fork:
 
 # Notes
 <sup>(1)</sup> Gradle `eclipse` plugin is no longer supported, so the recommended way to import the project in your IDE is with the proper IDE tools/plugins. Don't try to run `./gradlew clean eclipse --refresh-dependencies` from the command line as you'll get an error because `eclipse` no longer exists
+
+## <a id="ci"></a> Continuous integration
+
+See [MAINTAINERS.md](MAINTAINERS.md#ci) for information about CI.
+
+## <a id="releasing"></a> Releasing
+
+See [MAINTAINERS.md](MAINTAINERS.md#ci) for information about releasing.

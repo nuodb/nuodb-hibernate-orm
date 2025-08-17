@@ -10,6 +10,8 @@ import org.hibernate.metamodel.model.domain.PersistentAttribute;
 import org.hibernate.query.criteria.JpaDerivedJoin;
 import org.hibernate.query.criteria.JpaExpression;
 import org.hibernate.query.criteria.JpaPredicate;
+import org.hibernate.query.sqm.tree.domain.SqmCorrelatedDerivedJoin;
+import org.hibernate.query.sqm.tree.domain.SqmSingularValuedJoin;
 import org.hibernate.query.sqm.tuple.internal.AnonymousTupleType;
 import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.SqmPathSource;
@@ -17,7 +19,6 @@ import org.hibernate.query.sqm.spi.SqmCreationHelper;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmJoinType;
 import org.hibernate.query.sqm.tree.domain.AbstractSqmJoin;
-import org.hibernate.query.sqm.tree.domain.SqmCorrelatedEntityJoin;
 import org.hibernate.query.sqm.tree.domain.SqmTreatedJoin;
 import org.hibernate.query.sqm.tree.select.SqmSubQuery;
 import org.hibernate.spi.NavigablePath;
@@ -26,11 +27,13 @@ import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 
+import java.util.Objects;
+
 /**
  * @author Christian Beikov
  */
 @Incubating
-public class SqmDerivedJoin<T> extends AbstractSqmJoin<T, T> implements JpaDerivedJoin<T> {
+public class SqmDerivedJoin<T> extends AbstractSqmJoin<T, T> implements JpaDerivedJoin<T>, SqmSingularValuedJoin<T, T> {
 	private final SqmSubQuery<T> subQuery;
 	private final boolean lateral;
 
@@ -166,8 +169,8 @@ public class SqmDerivedJoin<T> extends AbstractSqmJoin<T, T> implements JpaDeriv
 	// JPA
 
 	@Override
-	public SqmCorrelatedEntityJoin<T,T> createCorrelation() {
-		throw new UnsupportedOperationException();
+	public SqmCorrelatedDerivedJoin<T> createCorrelation() {
+		return new SqmCorrelatedDerivedJoin<>( this );
 	}
 
 	@Override
@@ -215,5 +218,18 @@ public class SqmDerivedJoin<T> extends AbstractSqmJoin<T, T> implements JpaDeriv
 	@Override
 	public JoinType getJoinType() {
 		return getSqmJoinType().getCorrespondingJpaJoinType();
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmDerivedJoin<?> that
+			&& super.equals( object )
+			&& this.lateral == that.lateral
+			&& Objects.equals( this.subQuery, that.subQuery );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( super.hashCode(), subQuery, lateral );
 	}
 }

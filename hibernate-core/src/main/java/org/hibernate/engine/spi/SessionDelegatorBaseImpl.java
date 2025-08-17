@@ -40,6 +40,7 @@ import org.hibernate.SimpleNaturalIdLoadAccess;
 import org.hibernate.Transaction;
 import org.hibernate.UnknownProfileException;
 import org.hibernate.action.spi.AfterTransactionCompletionProcess;
+import org.hibernate.bytecode.enhance.spi.interceptor.SessionAssociationMarkers;
 import org.hibernate.cache.spi.CacheTransactionSynchronization;
 import org.hibernate.collection.spi.PersistentCollection;
 import org.hibernate.engine.jdbc.LobCreator;
@@ -66,6 +67,8 @@ import org.hibernate.resource.transaction.spi.TransactionCoordinator;
 import org.hibernate.stat.SessionStatistics;
 import org.hibernate.type.format.FormatMapper;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -873,13 +876,13 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
-	public <T> T find(Class<T> entityType, Object id, LockMode lockMode) {
-		return delegate.find( entityType, id, lockMode );
+	public Object find(String entityName, Object primaryKey) {
+		return delegate.find( entityName, primaryKey );
 	}
 
 	@Override
-	public <T> T find(Class<T> entityType, Object id, LockOptions lockOptions) {
-		return delegate.find( entityType, id, lockOptions );
+	public Object find(String entityName, Object primaryKey, FindOption... options) {
+		return delegate.find( entityName, primaryKey, options );
 	}
 
 	@Override
@@ -900,6 +903,11 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	@Override
 	public void lock(Object object, LockMode lockMode) {
 		delegate.lock( object, lockMode );
+	}
+
+	@Override
+	public void lock(Object object, LockMode lockMode, LockOption... lockOptions) {
+		delegate.lock( object, lockMode, lockOptions );
 	}
 
 	@Override
@@ -935,11 +943,6 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	@Override
 	public void refresh(Object entity, RefreshOption... options) {
 		delegate.refresh( entity, options );
-	}
-
-	@Override
-	public void refresh(Object object, LockMode lockMode) {
-		delegate.refresh( object, lockMode );
 	}
 
 	@Override
@@ -983,11 +986,6 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
-	public <T> T get(Class<T> theClass, Object id, LockOptions lockOptions) {
-		return delegate.get( theClass, id, lockOptions );
-	}
-
-	@Override
 	public Object get(String entityName, Object id) {
 		return delegate.get( entityName, id );
 	}
@@ -995,6 +993,11 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	@Override
 	public Object get(String entityName, Object id, LockMode lockMode) {
 		return delegate.get( entityName, id, lockMode );
+	}
+
+	@Override
+	public <T> T get(Class<T> entityType, Object id, LockOptions lockOptions) {
+		return delegate.get( entityType, id, lockOptions );
 	}
 
 	@Override
@@ -1248,7 +1251,22 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
+	public SessionAssociationMarkers getSessionAssociationMarkers() {
+		return delegate.getSessionAssociationMarkers();
+	}
+
+	@Override
 	public boolean isIdentifierRollbackEnabled() {
 		return delegate.isIdentifierRollbackEnabled();
+	}
+
+	@Override
+	public void afterObtainConnection(Connection connection) throws SQLException {
+		delegate.afterObtainConnection( connection );
+	}
+
+	@Override
+	public void beforeReleaseConnection(Connection connection) throws SQLException {
+		delegate.beforeReleaseConnection( connection );
 	}
 }

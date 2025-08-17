@@ -10,6 +10,8 @@ import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 
+import java.util.Objects;
+
 /**
  * @author Gavin King
  */
@@ -22,7 +24,7 @@ public class SqmToDuration<T> extends AbstractSqmExpression<T> {
 			SqmDurationUnit<?> unit,
 			ReturnableType<T> type,
 			NodeBuilder nodeBuilder) {
-		super( type.resolveExpressible( nodeBuilder ), nodeBuilder );
+		super( nodeBuilder.resolveExpressible( type ), nodeBuilder );
 		this.magnitude = magnitude;
 		this.unit = unit;
 	}
@@ -69,5 +71,17 @@ public class SqmToDuration<T> extends AbstractSqmExpression<T> {
 		magnitude.appendHqlString( hql, context );
 		hql.append( ' ' );
 		hql.append( unit.getUnit() );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmToDuration<?> that
+			&& Objects.equals( magnitude, that.magnitude )
+			&& Objects.equals( unit, that.unit );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( magnitude, unit );
 	}
 }

@@ -10,10 +10,12 @@ import java.sql.SQLException;
 
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
+import org.hibernate.Locking;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.pagination.LimitHandler;
 import org.hibernate.dialect.pagination.NoopLimitHandler;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
+import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
 import org.hibernate.engine.jdbc.spi.SqlStatementLogger;
 import org.hibernate.engine.spi.SessionEventListenerManager;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
@@ -34,6 +36,7 @@ import org.hibernate.sql.exec.spi.JdbcParameterBindings;
 import org.hibernate.sql.exec.spi.JdbcSelectExecutor;
 
 import static java.util.Collections.emptyMap;
+import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
 
 /**
  * @author Steve Ebersole
@@ -88,9 +91,14 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 			final String sql = jdbcSelect.getSqlString();
 
 			limit = queryOptions.getLimit();
-			final boolean hasLimit = isHasLimit( jdbcSelect );
-			limitHandler = hasLimit ? NoopLimitHandler.NO_LIMIT : dialect.getLimitHandler();
-			final String sqlWithLimit = hasLimit ? sql : limitHandler.processSql( sql, limit, queryOptions );
+			final boolean needsLimitHandler = needsLimitHandler( jdbcSelect );
+			limitHandler = needsLimitHandler ? dialect.getLimitHandler() : NoopLimitHandler.NO_LIMIT;
+			final String sqlWithLimit = !needsLimitHandler ? sql : limitHandler.processSql(
+					sql,
+					jdbcParameterBindings.getBindings().size(),
+					jdbcServices.getParameterMarkerStrategy(),
+					queryOptions
+			);
 
 			final LockOptions lockOptions = queryOptions.getLockOptions();
 			final JdbcLockStrategy jdbcLockStrategy = jdbcSelect.getLockStrategy();
@@ -117,8 +125,8 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 		}
 	}
 
-	private boolean isHasLimit(JdbcOperationQuerySelect jdbcSelect) {
-		return limit == null || limit.isEmpty() || jdbcSelect.usesLimitParameters();
+	private boolean needsLimitHandler(JdbcOperationQuerySelect jdbcSelect) {
+		return limit != null && !limit.isEmpty() && !jdbcSelect.usesLimitParameters();
 	}
 
 	private static boolean hasLocking(JdbcLockStrategy jdbcLockStrategy, LockOptions lockOptions) {
@@ -128,14 +136,16 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 	private void handleFollowOnLocking(ExecutionContext executionContext, LockOptions lockOptions) {
 		final LockMode lockMode = determineFollowOnLockMode( lockOptions );
 		if ( lockMode != LockMode.UPGRADE_SKIPLOCKED ) {
-			// Dialect prefers to perform locking in a separate step
 			if ( lockOptions.getLockMode() != LockMode.NONE ) {
 				LOG.usingFollowOnLocking();
 			}
 
-			final LockOptions lockOptionsToUse = new LockOptions( lockMode );
-			lockOptionsToUse.setTimeOut( lockOptions.getTimeOut() );
-			lockOptionsToUse.setLockScope( lockOptions.getLockScope() );
+			final LockOptions lockOptionsToUse = new LockOptions(
+					lockMode,
+					lockOptions.getTimeOut(),
+					lockOptions.getScope(),
+					Locking.FollowOn.ALLOW
+			);
 
 			registerAfterLoadAction( executionContext, lockOptionsToUse );
 		}
@@ -156,12 +166,23 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 			QueryOptions queryOptions,
 			LockOptions lockOptions,
 			Dialect dialect) {
+		assert lockOptions != null;
 		return switch ( jdbcLockStrategy ) {
 			case FOLLOW_ON -> true;
-			case AUTO -> lockOptions.getFollowOnLocking() == null
-					? dialect.useFollowOnLocking( sql, queryOptions )
-					: lockOptions.getFollowOnLocking();
-			default -> false;
+			case AUTO -> interpretAutoLockStrategy( sql, queryOptions, lockOptions, dialect);
+			case NONE -> false;
+		};
+	}
+
+	private static boolean interpretAutoLockStrategy(
+			String sql,
+			QueryOptions queryOptions,
+			LockOptions lockOptions,
+			Dialect dialect) {
+		return switch ( lockOptions.getFollowOnStrategy() ) {
+			case ALLOW -> dialect.useFollowOnLocking( sql, queryOptions );
+			case FORCE -> true;
+			case DISALLOW, IGNORE -> false;
 		};
 	}
 
@@ -182,7 +203,7 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 	}
 
 	@Override
-	public SessionFactoryImplementor getFactory() {
+	protected SessionFactoryImplementor getFactory() {
 		return executionContext.getSession().getFactory();
 	}
 
@@ -226,11 +247,15 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 		final QueryOptions queryOptions = executionContext.getQueryOptions();
 		// set options
 		if ( queryOptions != null ) {
-			if ( queryOptions.getFetchSize() != null ) {
-				preparedStatement.setFetchSize( queryOptions.getFetchSize() );
+			final Integer fetchSize = queryOptions.getFetchSize();
+			if ( fetchSize != null ) {
+				JDBC_MESSAGE_LOGGER.settingFetchSize( fetchSize );
+				preparedStatement.setFetchSize( fetchSize );
 			}
-			if ( queryOptions.getTimeout() != null ) {
-				preparedStatement.setQueryTimeout( queryOptions.getTimeout() );
+			final Integer timeout = queryOptions.getTimeout();
+			if ( timeout != null ) {
+				JDBC_MESSAGE_LOGGER.settingQueryTimeout( timeout );
+				preparedStatement.setQueryTimeout( timeout );
 			}
 		}
 	}
@@ -241,7 +266,7 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 
 		final SharedSessionContractImplementor session = executionContext.getSession();
 		try {
-			LOG.tracef( "Executing query to retrieve ResultSet : %s", finalSql );
+			LOG.tracef( "Executing query to retrieve ResultSet: %s", finalSql );
 			// prepare the query
 			preparedStatement = statementCreator.createStatement( executionContext, finalSql );
 
@@ -276,7 +301,7 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 				exception.addSuppressed( suppressed );
 			}
 			throw session.getJdbcServices().getSqlExceptionHelper()
-					.convert( exception, "JDBC exception executing SQL [" + finalSql + "]" );
+					.convert( exception, "JDBC exception executing SQL", finalSql );
 		}
 	}
 
@@ -319,22 +344,14 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 	}
 
 	protected LockMode determineFollowOnLockMode(LockOptions lockOptions) {
-		final LockMode lockModeToUse = lockOptions.findGreatestLockMode();
-		if ( lockOptions.hasAliasSpecificLockModes() ) {
-			if ( lockOptions.getLockMode() == LockMode.NONE && lockModeToUse == LockMode.NONE ) {
-				return lockModeToUse;
-			}
-			else {
-				LOG.aliasSpecificLockingWithFollowOnLocking( lockModeToUse );
-			}
-		}
-		return lockModeToUse;
+		return lockOptions.getLockMode();
 	}
 
 	@Override
 	public void release() {
-		final LogicalConnectionImplementor logicalConnection =
-				getPersistenceContext().getJdbcCoordinator().getLogicalConnection();
+		final JdbcCoordinator jdbcCoordinator =
+				getPersistenceContext().getJdbcCoordinator();
+		final LogicalConnectionImplementor logicalConnection = jdbcCoordinator.getLogicalConnection();
 		if ( resultSet != null ) {
 			logicalConnection.getResourceRegistry().release( resultSet, preparedStatement );
 			resultSet = null;
@@ -343,9 +360,8 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 		if ( preparedStatement != null ) {
 			logicalConnection.getResourceRegistry().release( preparedStatement );
 			preparedStatement = null;
+			jdbcCoordinator.afterStatementExecution();
 		}
-
-		logicalConnection.afterStatement();
 	}
 
 	@Override

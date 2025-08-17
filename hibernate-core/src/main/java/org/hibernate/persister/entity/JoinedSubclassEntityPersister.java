@@ -171,7 +171,7 @@ public class JoinedSubclassEntityPersister extends AbstractEntityPersister {
 			forceDiscriminator = persistentClass.isForceDiscriminator();
 			final Value discriminatorMapping = persistentClass.getDiscriminator();
 			if ( discriminatorMapping != null ) {
-				log.debug( "Encountered explicit discriminator mapping for joined inheritance" );
+				log.tracef( "Encountered explicit discriminator mapping for joined inheritance" );
 				final Selectable selectable = discriminatorMapping.getSelectables().get(0);
 				if ( selectable instanceof Column column ) {
 					explicitDiscriminatorColumnName = column.getQuotedName( dialect );
@@ -1084,7 +1084,7 @@ public class JoinedSubclassEntityPersister extends AbstractEntityPersister {
 						notNullColumnNames,
 						discriminatorValues,
 						discriminatorAbstract,
-						resolveDiscriminatorType()
+						getDiscriminatorDomainType()
 				);
 			}
 		}
@@ -1293,15 +1293,16 @@ public class JoinedSubclassEntityPersister extends AbstractEntityPersister {
 			Map<String, EntityNameUse> entityNameUses,
 			MappingMetamodelImplementor metamodel) {
 		if ( tableReference.getTableExpression().equals( getRootTableName() ) ) {
-			assert join.getJoinType() == SqlAstJoinType.INNER : "Found table reference join with root table of non-INNER type: " + join.getJoinType();
 			final String discriminatorPredicate = getPrunedDiscriminatorPredicate(
 					entityNameUses,
 					metamodel,
 					"t"
-//					tableReference.getIdentificationVariable()
 			);
-			tableReference.setPrunedTableExpression( "(select * from " + getRootTableName() + " t where " + discriminatorPredicate + ")" );
-//			join.applyPredicate( new SqlFragmentPredicate( discriminatorPredicate ) );
+			// null means we're filtering for all subtypes, so we don't need to apply a predicate
+			if ( discriminatorPredicate != null ) {
+				assert join.getJoinType() == SqlAstJoinType.INNER : "Found table reference join with root table of non-INNER type: " + join.getJoinType();
+				tableReference.setPrunedTableExpression( "(select * from " + getRootTableName() + " t where " + discriminatorPredicate + ")" );
+			}
 			return true;
 		}
 		return false;

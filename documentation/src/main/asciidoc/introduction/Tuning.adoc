@@ -92,7 +92,10 @@ The following settings are common to all connection pools supported by Hibernate
 | link:{doc-javadoc-url}/org/hibernate/cfg/JdbcSettings.html#ISOLATION[`hibernate.connection.isolation`] | The default transaction isolation level
 |===
 
-A popular alternative to Agroal is HikariCP.
+:hikaricp: https://github.com/brettwooldridge/HikariCP
+
+A popular alternative to Agroal is {hikaricp}[HikariCP].
+Integration with HikariCP is provided by the module `org.hibernate.orm:hibernate-hikaricp`.
 Its settings are enumerated by link:{doc-javadoc-url}/org/hibernate/cfg/HikariCPSettings.html[`HikariCPSettings`].
 
 .Container-managed datasources
@@ -122,7 +125,13 @@ The default fetch size can be overridden for a given query by calling link:{doc-
 [WARNING]
 ====
 The Oracle JDBC driver defaults to a JDBC fetch size of 10.
-You should _always_ set explicitly `hibernate.jdbc.fetch_size` if you're using Oracle, or, even better, specify the parameter `defaultRowPrefetch` in the JDBC connection URL.
+You should _always_ set `hibernate.jdbc.fetch_size` explicitly if you're using Oracle, or, even better, specify the parameter `defaultRowPrefetch` in the JDBC connection URL.
+====
+
+[TIP]
+====
+The MySQL JDBC driver ignores the fetch size by default.
+The JDBC connection property `useCursorFetch=true` enables the use of server-side cursors, and with this setting the driver respects the fetch size.
 ====
 
 [[statement-batching]]
@@ -140,6 +149,8 @@ All we need to do is set a single property:
 
 | link:{doc-javadoc-url}/org/hibernate/cfg/BatchSettings.html#STATEMENT_BATCH_SIZE[`hibernate.jdbc.batch_size`] | Maximum batch size for SQL statement batching | `setJdbcBatchSize()`
 |===
+
+To confirm that statement batching is working, enable ``TRACE``-level logging for the category `org.hibernate.orm.jdbc.batch`.
 
 That said, batching is rarely the most convenient or most efficient way to update or delete many rows at once.
 
@@ -1175,7 +1186,7 @@ It's much more typesafe to use one of the first two options.
 === Reactive programming with Hibernate
 
 :hr: https://hibernate.org/reactive/
-:hr-guide: https://hibernate.org/reactive/documentation/2.0/reference/html_single/
+:hr-guide: https://hibernate.org/reactive/documentation/3.0/reference/html_single/
 
 Finally, many systems which require high scalability now make use of reactive programming and reactive streams.
 {hr}[Hibernate Reactive] brings O/R mapping to the world of reactive programming.

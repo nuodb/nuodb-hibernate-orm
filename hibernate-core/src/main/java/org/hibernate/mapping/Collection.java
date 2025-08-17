@@ -548,9 +548,16 @@ public abstract sealed class Collection
 
 	private void createForeignKeys() throws MappingException {
 		// if ( !isInverse() ) { // for inverse collections, let the "other end" handle it
+		final String entityName = getOwner().getEntityName();
 		if ( referencedPropertyName == null ) {
 			getElement().createForeignKey();
-			key.createForeignKeyOfEntity( getOwner().getEntityName() );
+			key.createForeignKeyOfEntity( entityName );
+		}
+		else {
+			final Property property = owner.getProperty( referencedPropertyName );
+			assert property != null;
+			key.createForeignKeyOfEntity( entityName,
+					property.getValue().getConstraintColumns() );
 		}
 		// }
 	}
@@ -889,5 +896,10 @@ public abstract sealed class Collection
 
 	public void setDeleteAllExpectation(Supplier<? extends Expectation> deleteAllExpectation) {
 		this.deleteAllExpectation = deleteAllExpectation;
+	}
+
+	@Override
+	public boolean isPartitionKey() {
+		return false;
 	}
 }

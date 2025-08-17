@@ -216,14 +216,15 @@ public interface SchemaToolingSettings {
 	 * <p>
 	 * The correct extractor to use depends on the format of the SQL script:
 	 * <ul>
-	 * <li>if the script has one complete SQL statement per line, use
+	 * <li>if the script has one complete SQL statement per line, use {@code single-line} or
 	 *     {@link org.hibernate.tool.schema.internal.script.SingleLineSqlScriptExtractor}, or
-	 * <li>if a script contains statements spread over multiple lines, use
+	 * <li>if a script contains statements spread over multiple lines, use {@code multi-line} or
 	 *     {@link org.hibernate.tool.schema.internal.script.MultiLineSqlScriptExtractor}.
 	 * </ul>
 	 *
 	 * @settingDefault {@code org.hibernate.tool.schema.internal.script.SingleLineSqlScriptExtractor}.
 	 *
+	 * @see org.hibernate.tool.schema.spi.SqlScriptCommandExtractor
 	 * @see org.hibernate.tool.schema.internal.script.SingleLineSqlScriptExtractor
 	 * @see org.hibernate.tool.schema.internal.script.MultiLineSqlScriptExtractor
 	 */
@@ -293,10 +294,12 @@ public interface SchemaToolingSettings {
 	String HBM2DDL_DEFAULT_CONSTRAINT_MODE = "hibernate.hbm2ddl.default_constraint_mode";
 
 	/**
-	 * Specifies the default storage engine for a relational databases that supports
+	 * Specifies the default storage engine for a relational database that supports
 	 * multiple storage engines. This property must be set either as an {@link Environment}
 	 * variable or JVM System Property, since the {@link org.hibernate.dialect.Dialect} is
 	 * instantiated before Hibernate property resolution.
+	 * <p>
+	 * For MySQL, the legal values are {@code innodb} (the default) and {@code myisam}.
 	 *
 	 * @since 5.2.9
 	 */

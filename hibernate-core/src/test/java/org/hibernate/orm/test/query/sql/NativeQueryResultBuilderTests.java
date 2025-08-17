@@ -10,6 +10,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
+import org.hibernate.community.dialect.InformixDialect;
 import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.community.dialect.DerbyDialect;
 import org.hibernate.dialect.OracleDialect;
@@ -20,7 +21,7 @@ import org.hibernate.metamodel.mapping.ModelPart;
 import org.hibernate.metamodel.mapping.internal.BasicAttributeMapping;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.testing.orm.domain.gambit.BasicEntity;
-import org.hibernate.type.descriptor.converter.spi.BasicValueConverter;
+import org.hibernate.testing.orm.junit.SkipForDialect;
 import org.hibernate.type.descriptor.converter.spi.JpaAttributeConverter;
 import org.hibernate.type.descriptor.jdbc.spi.JdbcTypeRegistry;
 
@@ -35,7 +36,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.assertj.core.api.Assumptions;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 
@@ -80,17 +80,17 @@ public class NativeQueryResultBuilderTests {
 	}
 
 	@Test
+	// DB2, Derby, SQL Server and Sybase return an Integer for count by default
+	// Oracle returns a NUMERIC(39,0) i.e. a BigDecimal for count by default
+	@SkipForDialect(dialectClass = DB2Dialect.class)
+	@SkipForDialect(dialectClass = DerbyDialect.class)
+	@SkipForDialect(dialectClass = SQLServerDialect.class)
+	@SkipForDialect(dialectClass = SybaseDialect.class, matchSubTypes = true)
+	@SkipForDialect(dialectClass = OracleDialect.class)
+	@SkipForDialect(dialectClass = InformixDialect.class)
 	public void fullyImplicitTest2(SessionFactoryScope scope) {
 		scope.inTransaction(
 				session -> {
-					// DB2, Derby, SQL Server and Sybase return an Integer for count by default
-					// Oracle returns a NUMERIC(39,0) i.e. a BigDecimal for count by default
-					Assumptions.assumeThat( session.getJdbcServices().getDialect() )
-							.isNotInstanceOf( DB2Dialect.class )
-							.isNotInstanceOf( DerbyDialect.class )
-							.isNotInstanceOf( SQLServerDialect.class )
-							.isNotInstanceOf( SybaseDialect.class )
-							.isNotInstanceOf( OracleDialect.class );
 					final String sql = "select count(the_string) from EntityOfBasics";
 					final NativeQuery<?> query = session.createNativeQuery( sql );
 
@@ -245,8 +245,8 @@ public class NativeQueryResultBuilderTests {
 		);
 	}
 
-	private Matcher matchesOrdinal(Enum enumValue) {
-		return new CustomMatcher<Object>( "Enum ordinal value" ) {
+	private Matcher<Object> matchesOrdinal(Enum<?> enumValue) {
+		return new CustomMatcher<>( "Enum ordinal value" ) {
 			@Override
 			public boolean matches(Object item) {
 				return ( (Number) item ).intValue() == enumValue.ordinal();
@@ -258,7 +258,7 @@ public class NativeQueryResultBuilderTests {
 	public void testConvertedAttributeBasedBuilder(SessionFactoryScope scope) {
 		scope.inTransaction(
 				session -> {
-					final NativeQuery qry = session.createNativeQuery(
+					final var qry = session.createNativeQuery(
 							"select converted_gender from EntityOfBasics"
 					);
 
@@ -268,7 +268,7 @@ public class NativeQueryResultBuilderTests {
 							"convertedGender"
 					);
 
-					final List results = qry.list();
+					final var results = qry.list();
 					assertThat( results.size(), is( 1 ) );
 
 					final Object result = results.get( 0 );
@@ -332,7 +332,7 @@ public class NativeQueryResultBuilderTests {
 
 		assertThat( attrMapping.getJavaType().getJavaTypeClass(), equalTo( EntityOfBasics.Gender.class ) );
 
-		final BasicValueConverter valueConverter = attrMapping.getJdbcMapping().getValueConverter();
+		final var valueConverter = attrMapping.getJdbcMapping().getValueConverter();
 		assertThat( valueConverter, instanceOf( JpaAttributeConverter.class ) );
 		assertThat( valueConverter.getDomainJavaType(), is( attrMapping.getJavaType() ) );
 		assertThat( valueConverter.getRelationalJavaType().getJavaTypeClass(), equalTo( Character.class ) );
@@ -372,12 +372,7 @@ public class NativeQueryResultBuilderTests {
 
 	@AfterEach
 	public void cleanUpData(SessionFactoryScope scope) {
-		scope.inTransaction(
-				session -> {
-					session.createQuery( "delete EntityOfBasics" ).executeUpdate();
-					session.createQuery( "delete BasicEntity" ).executeUpdate();
-				}
-		);
+		scope.getSessionFactory().getSchemaManager().truncate();
 	}
 
 	public static class DTO {

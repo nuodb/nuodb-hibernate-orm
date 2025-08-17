@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.community.dialect.InformixDialect;
 import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.H2Dialect;
 import org.hibernate.dialect.HANADialect;
@@ -26,6 +27,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.testing.orm.junit.EntityManagerFactoryScope;
 import org.hibernate.testing.orm.junit.Jpa;
 import org.hibernate.testing.orm.junit.RequiresDialect;
+import org.hibernate.testing.orm.junit.SkipForDialect;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @RequiresDialect( OracleDialect.class )
 @RequiresDialect( DB2Dialect.class )
 @RequiresDialect( HANADialect.class )
+@RequiresDialect( InformixDialect.class )
 public class ConstraintInterpretationTest2 {
 	@Test void testNotNullPrimaryKey(EntityManagerFactoryScope scope) {
 		scope.inTransaction( em -> {
@@ -52,7 +55,7 @@ public class ConstraintInterpretationTest2 {
 			}
 			catch (ConstraintViolationException cve) {
 				assertEquals( ConstraintViolationException.ConstraintKind.NOT_NULL, cve.getKind() );
-				if ( !(scope.getDialect() instanceof DB2Dialect) ) {
+				if ( !(scope.getDialect() instanceof DB2Dialect) && !(scope.getDialect() instanceof InformixDialect) ) {
 					assertTrue( cve.getConstraintName().toLowerCase().endsWith( "id" ) );
 				}
 			}
@@ -99,6 +102,9 @@ public class ConstraintInterpretationTest2 {
 			}
 		} );
 	}
+
+	@SkipForDialect(dialectClass = InformixDialect.class,
+			reason = "multi-column check constraints must be created using 'alter table', and we don't have a StandardCheckConstraintExporter")
 	@Test void testCheck(EntityManagerFactoryScope scope) {
 		scope.inTransaction( em -> {
 			try {

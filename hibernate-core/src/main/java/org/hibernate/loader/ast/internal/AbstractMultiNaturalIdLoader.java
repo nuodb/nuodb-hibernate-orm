@@ -52,7 +52,7 @@ public abstract class AbstractMultiNaturalIdLoader<E> implements MultiNaturalIdL
 			MultiNaturalIdLoadOptions loadOptions,
 			SharedSessionContractImplementor session) {
 		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.tracef( "Unordered MultiLoad starting: "
+			MULTI_KEY_LOAD_LOGGER.tracef( "Unordered batch load starting: "
 					+ getEntityDescriptor().getEntityName() );
 		}
 		return unorderedMultiLoad( naturalIds, loadOptions, session );
@@ -60,7 +60,7 @@ public abstract class AbstractMultiNaturalIdLoader<E> implements MultiNaturalIdL
 
 	private static LockOptions lockOptions(MultiNaturalIdLoadOptions loadOptions) {
 		final LockOptions lockOptions = loadOptions.getLockOptions();
-		return lockOptions == null ? LockOptions.NONE : lockOptions;
+		return lockOptions == null ? new LockOptions() : lockOptions;
 	}
 
 	private <K> List<E> unorderedMultiLoad(

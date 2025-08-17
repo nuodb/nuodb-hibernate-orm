@@ -9,6 +9,7 @@ import org.hibernate.metamodel.model.domain.TreatableDomainType;
 import org.hibernate.query.criteria.JpaExpression;
 import org.hibernate.query.criteria.JpaPredicate;
 import org.hibernate.query.hql.spi.SqmCreationState;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
@@ -18,6 +19,8 @@ import org.hibernate.spi.NavigablePath;
 
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
+
+import java.util.Objects;
 
 /**
  * @author Steve Ebersole
@@ -105,7 +108,7 @@ public class SqmTreatedListJoin<O,T, S extends T> extends SqmListJoin<O,S> imple
 	}
 
 	@Override
-	public SqmPathSource<S> getNodeType() {
+	public SqmBindableType<S> getNodeType() {
 		return treatTarget;
 	}
 
@@ -155,5 +158,18 @@ public class SqmTreatedListJoin<O,T, S extends T> extends SqmListJoin<O,S> imple
 		hql.append( " as " );
 		hql.append( treatTarget.getTypeName() );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmTreatedListJoin<?, ?, ?> that
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
+			&& Objects.equals( this.treatTarget.getTypeName(), that.treatTarget.getTypeName() )
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( treatTarget.getTypeName(), wrappedPath.getNavigablePath() );
 	}
 }

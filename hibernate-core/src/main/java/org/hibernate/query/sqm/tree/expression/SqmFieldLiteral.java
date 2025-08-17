@@ -10,6 +10,7 @@ import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import org.hibernate.QueryException;
 import org.hibernate.query.criteria.JpaSelection;
@@ -17,7 +18,7 @@ import org.hibernate.query.hql.spi.SemanticPathPart;
 import org.hibernate.query.hql.spi.SqmCreationState;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.UnknownPathException;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
@@ -30,16 +31,19 @@ import org.hibernate.type.descriptor.java.JavaType;
 import jakarta.persistence.criteria.Expression;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import static jakarta.persistence.metamodel.Type.PersistenceType.BASIC;
+
 /**
  * @author Steve Ebersole
  */
-public class SqmFieldLiteral<T> implements SqmExpression<T>, SqmExpressible<T>, SqmSelectableNode<T>, SemanticPathPart {
+public class SqmFieldLiteral<T>
+		implements SqmExpression<T>, SqmBindableType<T>, SqmSelectableNode<T>, SemanticPathPart {
 	private final T value;
 	private final JavaType<T> fieldJavaType;
 	private final String fieldName;
 	private final NodeBuilder nodeBuilder;
 
-	private final SqmExpressible<T> expressible;
+	private final SqmBindableType<T> expressible;
 
 	public SqmFieldLiteral(
 			Field field,
@@ -62,8 +66,12 @@ public class SqmFieldLiteral<T> implements SqmExpression<T>, SqmExpressible<T>, 
 		this.fieldJavaType = fieldJavaType;
 		this.fieldName = fieldName;
 		this.nodeBuilder = nodeBuilder;
-
 		this.expressible = this;
+	}
+
+	@Override
+	public PersistenceType getPersistenceType() {
+		return BASIC;
 	}
 
 	private static <T> T extractValue(Field field) {
@@ -106,21 +114,18 @@ public class SqmFieldLiteral<T> implements SqmExpression<T>, SqmExpressible<T>, 
 	}
 
 	@Override
-	public SqmExpressible<T> getNodeType() {
+	public SqmBindableType<T> getNodeType() {
 		return expressible;
 	}
 
 	@Override
-	public void applyInferableType(@Nullable SqmExpressible<?> type) {
+	public void applyInferableType(@Nullable SqmBindableType<?> type) {
 	}
 
 	@Override
 	public JavaType<T> getExpressibleJavaType() {
-		if ( expressible == this ) {
-			return fieldJavaType;
-		}
+		return expressible == this ? fieldJavaType : expressible.getExpressibleJavaType();
 
-		return expressible.getExpressibleJavaType();
 	}
 
 	@Override
@@ -129,7 +134,7 @@ public class SqmFieldLiteral<T> implements SqmExpression<T>, SqmExpressible<T>, 
 	}
 
 	@Override
-	public Class<T> getBindableJavaType() {
+	public Class<T> getJavaType() {
 		return getJavaTypeDescriptor().getJavaTypeClass();
 	}
 
@@ -141,6 +146,17 @@ public class SqmFieldLiteral<T> implements SqmExpression<T>, SqmExpressible<T>, 
 	@Override
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
 		SqmLiteral.appendHqlString( hql, getJavaTypeDescriptor(), getValue() );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmFieldLiteral<?> that
+			&& Objects.equals( value, that.value );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( value );
 	}
 
 	@Override

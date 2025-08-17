@@ -40,7 +40,7 @@ public class SqmHqlNumericLiteral<N extends Number> extends SqmLiteral<N> {
 			BasicDomainType<N> type,
 			NodeBuilder criteriaBuilder) {
 		this( literalValue,
-				interpretCategory( literalValue, type.resolveExpressible( criteriaBuilder ) ),
+				interpretCategory( literalValue, criteriaBuilder.resolveExpressible( type ) ),
 				type, criteriaBuilder );
 		this.type = type;
 	}
@@ -50,7 +50,7 @@ public class SqmHqlNumericLiteral<N extends Number> extends SqmLiteral<N> {
 			NumericTypeCategory typeCategory,
 			BasicDomainType<N> type,
 			NodeBuilder criteriaBuilder) {
-		super( type.resolveExpressible( criteriaBuilder ), criteriaBuilder );
+		super( criteriaBuilder.resolveExpressible( type ), criteriaBuilder );
 		this.literalValue = literalValue;
 		this.typeCategory = typeCategory;
 		this.type = type;
@@ -76,29 +76,14 @@ public class SqmHqlNumericLiteral<N extends Number> extends SqmLiteral<N> {
 
 	@Override
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
-		hql.append( literalValue );
-
-		switch ( typeCategory ) {
-			case BIG_DECIMAL: {
-				hql.append( "bd" );
-				break;
-			}
-			case FLOAT: {
-				hql.append( "f" );
-				break;
-			}
-			case BIG_INTEGER: {
-				hql.append( "bi" );
-				break;
-			}
-			case LONG: {
-				hql.append( "l" );
-				break;
-			}
-			default: {
-				// nothing to do for double/integer
-			}
-		}
+		hql.append( literalValue )
+			.append( switch ( typeCategory ) {
+				case BIG_DECIMAL -> "bd";
+				case FLOAT -> "f";
+				case BIG_INTEGER -> "bi";
+				case LONG -> "l";
+				case INTEGER, DOUBLE -> "";
+			} );
 	}
 
 	@Override

@@ -4,7 +4,6 @@
  */
 package org.hibernate.loader.ast.internal;
 
-import java.lang.reflect.Array;
 
 import org.hibernate.LockOptions;
 import org.hibernate.collection.spi.PersistentCollection;
@@ -33,9 +32,11 @@ import org.hibernate.sql.exec.spi.JdbcParametersList;
 import org.hibernate.sql.results.internal.RowTransformerStandardImpl;
 import org.hibernate.sql.results.spi.ListResultsConsumer;
 
+import static java.lang.reflect.Array.newInstance;
 import static org.hibernate.loader.ast.internal.MultiKeyLoadHelper.hasSingleId;
 import static org.hibernate.loader.ast.internal.MultiKeyLoadHelper.trimIdBatch;
 import static org.hibernate.loader.ast.internal.MultiKeyLoadLogging.MULTI_KEY_LOAD_LOGGER;
+import static org.hibernate.pretty.MessageHelper.collectionInfoString;
 
 /**
  * {@link CollectionBatchLoader} using a SQL {@code ARRAY} parameter to pass the key values.
@@ -58,9 +59,9 @@ public class CollectionBatchLoaderArrayParam
 			SessionFactoryImplementor sessionFactory) {
 		super( domainBatchSize, loadQueryInfluencers, attributeMapping, sessionFactory );
 
-		if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.debugf(
-					"Using ARRAY batch fetching strategy for collection `%s` : %s",
+		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+			MULTI_KEY_LOAD_LOGGER.tracef(
+					"Batch fetching enabled for collection '%s' using ARRAY strategy with batch size %s",
 					attributeMapping.getNavigableRole().getFullPath(),
 					domainBatchSize
 			);
@@ -82,7 +83,7 @@ public class CollectionBatchLoaderArrayParam
 				getLoadable(),
 				keyDescriptor.getKeyPart(),
 				getInfluencers(),
-				LockOptions.NONE,
+				new LockOptions(),
 				jdbcParameter,
 				getSessionFactory()
 		);
@@ -115,15 +116,13 @@ public class CollectionBatchLoaderArrayParam
 			Object keyBeingLoaded,
 			SharedSessionContractImplementor session,
 			ForeignKeyDescriptor keyDescriptor) {
-		if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.debugf(
-					"Batch fetching collection: %s.%s",
-					getLoadable().getNavigableRole().getFullPath(), keyBeingLoaded
-			);
+		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+			MULTI_KEY_LOAD_LOGGER.trace( "Batch fetching collection: "
+					+ collectionInfoString( getLoadable(), keyBeingLoaded ) );
 		}
 
 		final int length = getDomainBatchSize();
-		final Object[] keysToInitialize = (Object[]) Array.newInstance(
+		final Object[] keysToInitialize = (Object[]) newInstance(
 				jdbcParameter.getExpressionType()
 						.getSingleJdbcMapping()
 						.getJdbcJavaType()
@@ -131,7 +130,7 @@ public class CollectionBatchLoaderArrayParam
 						.getComponentType(),
 				length
 		);
-		final Object[] embeddedKeys = (Object[]) Array.newInstance( keyDomainType, length );
+		final Object[] embeddedKeys = (Object[]) newInstance( keyDomainType, length );
 		session.getPersistenceContextInternal().getBatchFetchQueue()
 				.collectBatchLoadableCollectionKeys(
 						length,
@@ -167,13 +166,10 @@ public class CollectionBatchLoaderArrayParam
 
 	@Override
 	void initializeKeys(Object key, Object[] keysToInitialize, SharedSessionContractImplementor session) {
-		if ( MULTI_KEY_LOAD_LOGGER.isDebugEnabled() ) {
-			MULTI_KEY_LOAD_LOGGER.debugf(
-					"Collection keys to batch-fetch initialize (`%s#%s`) %s",
-					getLoadable().getNavigableRole().getFullPath(),
-					key,
-					keysToInitialize
-			);
+		if ( MULTI_KEY_LOAD_LOGGER.isTraceEnabled() ) {
+			MULTI_KEY_LOAD_LOGGER.tracef( "Collection keys to initialize via batch fetching (%s) %s",
+					collectionInfoString( getLoadable(), key ),
+					keysToInitialize );
 		}
 
 		assert jdbcSelectOperation != null;
@@ -218,7 +214,7 @@ public class CollectionBatchLoaderArrayParam
 		if( keyDescriptor.isEmbedded()){
 			assert keyDescriptor.getJdbcTypeCount() == 1;
 			final int length = getDomainBatchSize();
-			final Object[] keysToInitialize = (Object[]) Array.newInstance( keyDescriptor.getSingleJdbcMapping().getJdbcJavaType().getJavaTypeClass(), length );
+			final Object[] keysToInitialize = (Object[]) newInstance( keyDescriptor.getSingleJdbcMapping().getJdbcJavaType().getJavaTypeClass(), length );
 			session.getPersistenceContextInternal().getBatchFetchQueue()
 					.collectBatchLoadableCollectionKeys(
 							length,

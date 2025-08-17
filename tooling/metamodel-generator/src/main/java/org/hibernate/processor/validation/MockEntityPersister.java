@@ -6,7 +6,12 @@ package org.hibernate.processor.validation;
 
 import jakarta.persistence.AccessType;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.persister.entity.DiscriminatorMetadata;
+import org.hibernate.metamodel.internal.ShortNameImplicitDiscriminatorStrategy;
+import org.hibernate.metamodel.mapping.DiscriminatorType;
+import org.hibernate.metamodel.mapping.EntityDiscriminatorMapping;
+import org.hibernate.metamodel.mapping.internal.DiscriminatorTypeImpl;
+import org.hibernate.metamodel.mapping.internal.UnifiedAnyDiscriminatorConverter;
+import org.hibernate.metamodel.model.domain.NavigableRole;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.persister.entity.Joinable;
 import org.hibernate.tuple.entity.EntityMetamodel;
@@ -22,11 +27,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static java.util.Collections.emptyMap;
+
 /**
  * @author Gavin King
  */
 @SuppressWarnings("nullness")
-public abstract class MockEntityPersister implements EntityPersister, Joinable, DiscriminatorMetadata {
+public abstract class MockEntityPersister implements EntityPersister, Joinable {
 
 	private static final String[] ID_COLUMN = {"id"};
 
@@ -91,25 +98,36 @@ public abstract class MockEntityPersister implements EntityPersister, Joinable, 
 
 	@Override
 	public final Type getPropertyType(String propertyPath) {
-		Type result = propertyTypesByName.get(propertyPath);
-		if (result!=null) {
-			return result;
+		final Type cached = propertyTypesByName.get(propertyPath);
+		if ( cached == null ) {
+			final Type type = propertyType( propertyPath );
+			if ( type != null ) {
+				propertyTypesByName.put( propertyPath, type );
+			}
+			return type;
+		}
+		else {
+			return cached;
+		}
+	}
+
+	private Type propertyType(String propertyPath) {
+		final Type type = createPropertyType( propertyPath );
+		if ( type != null ) {
+			return type;
 		}
 
-		result = createPropertyType(propertyPath);
-		if (result == null) {
-			//check subclasses, needed for treat()
-			result = getSubclassPropertyType(propertyPath);
+		//check subclasses, needed for treat()
+		final Type typeFromSubclass = getSubclassPropertyType( propertyPath );
+		if ( typeFromSubclass != null ) {
+			return typeFromSubclass;
 		}
 
-		if ("id".equals( propertyPath )) {
-			result = identifierType();
+		if ( "id".equals( propertyPath ) ) {
+			return identifierType();
 		}
 
-		if (result!=null) {
-			propertyTypesByName.put(propertyPath, result);
-		}
-		return result;
+		return null;
 	}
 
 	abstract Type createPropertyType(String propertyPath);
@@ -189,13 +207,20 @@ public abstract class MockEntityPersister implements EntityPersister, Joinable, 
 	}
 
 	@Override
-	public DiscriminatorMetadata getTypeDiscriminatorMetadata() {
-		return this;
-	}
-
-	@Override
-	public Type getResolutionType() {
-		return factory.getTypeConfiguration().getBasicTypeForJavaType(Class.class);
+	public DiscriminatorType<?> getDiscriminatorDomainType() {
+		var type = getDiscriminatorType();
+		return new DiscriminatorTypeImpl<>(
+				type,
+				new UnifiedAnyDiscriminatorConverter<>(
+						new NavigableRole( entityName )
+								.append( EntityDiscriminatorMapping.DISCRIMINATOR_ROLE_NAME ),
+						type.getJavaTypeDescriptor(),
+						type.getRelationalJavaType(),
+						emptyMap(),
+						ShortNameImplicitDiscriminatorStrategy.SHORT_NAME_STRATEGY,
+						factory.getMetamodel()
+				)
+		);
 	}
 
 	@Override
@@ -224,7 +249,7 @@ public abstract class MockEntityPersister implements EntityPersister, Joinable, 
 	}
 
 	@Override
-	public Type getDiscriminatorType() {
+	public BasicType<String> getDiscriminatorType() {
 		return factory.getTypeConfiguration().getBasicTypeForJavaType(String.class);
 	}
 

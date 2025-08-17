@@ -135,7 +135,7 @@ public class SchemaCreatorImpl extends AbstractSchemaPopulator implements Schema
 					target.release();
 				}
 				catch (Exception e) {
-					log.debugf( "Problem releasing GenerationTarget [%s] : %s", target, e.getMessage() );
+					log.debugf( "Problem releasing GenerationTarget [%s]: %s", target, e.getMessage() );
 				}
 			}
 		}
@@ -290,7 +290,7 @@ public class SchemaCreatorImpl extends AbstractSchemaPopulator implements Schema
 					if ( schemaFilter.includeTable( table )
 							&& contributableInclusionMatcher.matches( table ) ) {
 						// foreign keys
-						for ( ForeignKey foreignKey : table.getForeignKeys().values() ) {
+						for ( ForeignKey foreignKey : table.getForeignKeyCollection() ) {
 							applySqlStrings(
 									dialect.getForeignKeyExporter().getSqlCreateStrings( foreignKey, metadata, context ),
 									formatter,

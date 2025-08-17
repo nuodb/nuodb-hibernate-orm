@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import jakarta.persistence.FindOption;
+import jakarta.persistence.LockOption;
+import jakarta.persistence.RefreshOption;
 import jakarta.persistence.metamodel.EntityType;
 import org.hibernate.graph.RootGraph;
 import org.hibernate.jdbc.Work;
@@ -100,9 +102,9 @@ import jakarta.persistence.criteria.CriteriaUpdate;
  * behavior is appropriate for programs which use optimistic locking.
  * <ul>
  * <li>A different lock level may be obtained by explicitly specifying the mode using
- *     {@link #get(Class, Object, LockMode)}, {@link #find(Class, Object, LockModeType)},
- *     {@link #refresh(Object, LockMode)}, {@link #refresh(Object, LockModeType)}, or
- *     {@link org.hibernate.query.SelectionQuery#setLockMode(LockModeType)}.
+ *     {@link #find(Class,Object,LockModeType)}, {@link #find(Class,Object,FindOption...)},
+ *     {@link #refresh(Object,LockModeType)}, {@link #refresh(Object,RefreshOption...)},
+ *     or {@link org.hibernate.query.SelectionQuery#setLockMode(LockModeType)}.
  * <li>The lock level of a managed instance already held by the session may be upgraded
  *     to a more restrictive lock level by calling {@link #lock(Object, LockMode)} or
  *     {@link #lock(Object, LockModeType)}.
@@ -145,6 +147,9 @@ import jakarta.persistence.criteria.CriteriaUpdate;
  *     cannot be expected to be consistent with the database after the exception occurs.
  * <li>At the end of a logical transaction, the session must be explicitly {@linkplain
  *     #close() destroyed}, so that all JDBC resources may be released.
+ * <li>If a transaction is rolled back, the state of the persistence context and of its
+ *     associated entities must be assumed inconsistent with the database, and the
+ *     session must be discarded.
  * <li>A {@code Session} is never thread-safe. It contains various different sorts of
  *     fragile mutable state. Each thread or transaction must obtain its own dedicated
  *     instance from the {@link SessionFactory}.
@@ -483,8 +488,7 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @param object the managed entity to evict
 	 *
-	 * @throws NullPointerException if the passed object is {@code null}
-	 * @throws IllegalArgumentException if the passed object is not mapped as an entity
+	 * @throws IllegalArgumentException if the given object is not an entity
 	 */
 	void evict(Object object);
 
@@ -507,7 +511,7 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * <ul>
 	 * <li>call {@link #find(Class, Object, FindOption...)}, passing
 	 *     {@link CacheRetrieveMode#BYPASS} as an option,
-	 * <li>call {@link #find(Class, Object, LockMode)} with the explicit lock mode
+	 * <li>call {@link #find(Class, Object, FindOption...)} with the explicit lock mode
 	 *     {@link LockMode#READ}, or
 	 * <li>{@linkplain #setCacheRetrieveMode set the cache mode} to
 	 *     {@link CacheRetrieveMode#BYPASS} before calling this method.
@@ -524,40 +528,26 @@ public interface Session extends SharedSessionContract, EntityManager {
 	<T> T find(Class<T> entityType, Object id);
 
 	/**
-	 * Return the persistent instance of the given entity class with the given identifier,
-	 * or null if there is no such persistent instance. If the instance is already associated
-	 * with the session, return that instance. This method never returns an uninitialized
-	 * instance. Obtain the specified lock mode if the instance exists.
-	 * <p>
-	 * Convenient form of {@link #find(Class, Object, LockOptions)}.
+	 * Return the persistent instance of the named entity type with the given identifier,
+	 * or null if there is no such persistent instance.
+	 * <p/>
+	 * Differs from {@linkplain #find(Class, Object)} in that this form accepts
+	 * the entity name of a {@linkplain org.hibernate.metamodel.RepresentationMode#MAP dynamic entity}.
 	 *
-	 * @param entityType the entity type
-	 * @param id an identifier
-	 * @param lockMode the lock mode
-	 *
-	 * @return a fully-fetched persistent instance or null
-	 *
-	 * @since 7.0
-	 *
-	 * @see #find(Class, Object, LockOptions)
+	 * @see #find(Class, Object)
 	 */
-	<T> T find(Class<T> entityType, Object id, LockMode lockMode);
+	Object find(String entityName, Object primaryKey);
 
 	/**
-	 * Return the persistent instance of the given entity class with the given identifier,
-	 * or null if there is no such persistent instance. If the instance is already associated
-	 * with the session, return that instance. This method never returns an uninitialized
-	 * instance. Obtain the specified lock mode if the instance exists.
+	 * Return the persistent instance of the named entity type with the given identifier
+	 * using the specified options, or null if there is no such persistent instance.
+	 * <p/>
+	 * Differs from {@linkplain #find(Class, Object, FindOption...)} in that this form accepts
+	 * the entity name of a {@linkplain org.hibernate.metamodel.RepresentationMode#MAP dynamic entity}.
 	 *
-	 * @param entityType the entity type
-	 * @param id an identifier
-	 * @param lockOptions the lock mode
-	 *
-	 * @return a fully-fetched persistent instance or null
-	 *
-	 * @since 7.0
+	 * @see #find(Class, Object, FindOption...)
 	 */
-	<T> T find(Class<T> entityType, Object id, LockOptions lockOptions);
+	Object find(String entityName, Object primaryKey, FindOption... options);
 
 	/**
 	 * Return the persistent instances of the given entity class with the given identifiers
@@ -782,22 +772,43 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @param object a persistent instance associated with this session
 	 * @param lockMode the lock level
+	 *
+	 * @see #lock(Object, LockModeType)
 	 */
 	void lock(Object object, LockMode lockMode);
 
 	/**
-	 * Obtain a lock on the given managed instance associated with this session,
-	 * using the given {@linkplain LockOptions lock options}.
+	 * Obtain the specified lock level on the given managed instance associated
+	 * with this session, applying any other specified options. This operation may
+	 * be used to:
+	 * <ul>
+	 * <li>perform a version check on an entity read from the second-level cache
+	 *     by requesting {@link LockMode#READ},
+	 * <li>schedule a version check at transaction commit by requesting
+	 *     {@link LockMode#OPTIMISTIC},
+	 * <li>schedule a version increment at transaction commit by requesting
+	 *     {@link LockMode#OPTIMISTIC_FORCE_INCREMENT}
+	 * <li>upgrade to a pessimistic lock with {@link LockMode#PESSIMISTIC_READ}
+	 *     or {@link LockMode#PESSIMISTIC_WRITE}, or
+	 * <li>immediately increment the version of the given instance by requesting
+	 *     {@link LockMode#PESSIMISTIC_FORCE_INCREMENT}.
+	 * </ul>
+	 * <p>
+	 * If the requested lock mode is already held on the given entity, this
+	 * operation has no effect.
 	 * <p>
 	 * This operation cascades to associated instances if the association is
 	 * mapped with {@link org.hibernate.annotations.CascadeType#LOCK}.
+	 * <p>
+	 * The modes {@link LockMode#WRITE} and {@link LockMode#UPGRADE_SKIPLOCKED}
+	 * are not legal arguments to {@code lock()}.
 	 *
 	 * @param object a persistent instance associated with this session
-	 * @param lockOptions the lock options
+	 * @param lockMode the lock level
 	 *
-	 * @since 6.2
+	 * @see #lock(Object, LockModeType, LockOption...)
 	 */
-	void lock(Object object, LockOptions lockOptions);
+	void lock(Object object, LockMode lockMode, LockOption... lockOptions);
 
 	/**
 	 * Reread the state of the given managed instance associated with this session
@@ -815,34 +826,13 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * with {@link jakarta.persistence.CascadeType#REFRESH}.
 	 * <p>
 	 * This operation requests {@link LockMode#READ}. To obtain a stronger lock,
-	 * call {@link #refresh(Object, LockMode)}.
+	 * call {@link #refresh(Object, RefreshOption...)}, passing the appropriate
+	 * {@link LockMode} as an option.
 	 *
 	 * @param object a persistent instance associated with this session
 	 */
 	@Override
 	void refresh(Object object);
-
-	/**
-	 * Reread the state of the given managed instance from the underlying database,
-	 * obtaining the given {@link LockMode}.
-	 * <p>
-	 * Convenient form of {@link #refresh(Object, LockOptions)}
-	 *
-	 * @param object a persistent instance associated with this session
-	 * @param lockMode the lock mode to use
-	 *
-	 * @see #refresh(Object, LockOptions)
-	 */
-	void refresh(Object object, LockMode lockMode);
-
-	/**
-	 * Reread the state of the given managed instance from the underlying database,
-	 * obtaining the given {@link LockMode}.
-	 *
-	 * @param object a persistent instance associated with this session
-	 * @param lockOptions contains the lock mode to use
-	 */
-	void refresh(Object object, LockOptions lockOptions);
 
 	/**
 	 * Mark a persistence instance associated with this session for removal from
@@ -859,19 +849,32 @@ public interface Session extends SharedSessionContract, EntityManager {
 	void remove(Object object);
 
 	/**
-	 * Determine the current {@link LockMode} of the given managed instance associated
-	 * with this session.
+	 * Determine the current {@linkplain LockMode lock mode} held on the given
+	 * managed instance associated with this session.
+	 * <p>
+	 * Unlike the JPA-standard {@link #getLockMode}, this operation may be
+	 * called when no transaction is active, in which case it should return
+	 * {@link LockMode#NONE}, indicating that no pessimistic lock is held on
+	 * the given entity.
 	 *
 	 * @param object a persistent instance associated with this session
 	 *
-	 * @return the current lock mode
+	 * @return the lock mode currently held on the given entity
+	 *
+	 * @throws IllegalStateException if the given instance is not associated
+	 *                               with this persistence context
+	 * @throws ObjectDeletedException if the given instance was already
+	 *                                {@linkplain #remove removed}
 	 */
 	LockMode getCurrentLockMode(Object object);
 
 	/**
-	 * Completely clear the session. Evict all loaded instances and cancel all pending
-	 * saves, updates and deletions. Do not close open iterators or instances of
-	 * {@link ScrollableResults}.
+	 * Completely clear the persistence context. Evict all loaded instances,
+	 * causing every managed entity currently associated with this session to
+	 * transition to the detached state, and cancel all pending insertions,
+	 * updates, and deletions.
+	 * <p>
+	 * Does not close open iterators or instances of {@link ScrollableResults}.
 	 */
 	@Override
 	void clear();
@@ -909,7 +912,7 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * @deprecated Because the semantics of this method may change in a future release.
 	 *             Use {@link #find(Class, Object)} instead.
 	 */
-	@Deprecated(since = "7")
+	@Deprecated(since = "7.0", forRemoval = true)
 	<T> T get(Class<T> entityType, Object id);
 
 	/**
@@ -917,8 +920,6 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * or null if there is no such persistent instance. If the instance is already associated
 	 * with the session, return that instance. This method never returns an uninitialized
 	 * instance. Obtain the specified lock mode if the instance exists.
-	 * <p>
-	 * Convenient form of {@link #get(Class, Object, LockOptions)}.
 	 *
 	 * @apiNote This operation is very similar to {@link #find(Class, Object, LockModeType)}.
 	 *
@@ -928,31 +929,10 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @return a persistent instance or null
 	 *
-	 * @see #get(Class, Object, LockOptions)
-	 *
-	 * @deprecated The semantics of this method may change in a future release.
-	 *             Use {@link #find(Class, Object, LockMode)} instead.
+	 * @deprecated Use {@link #find(Class, Object, FindOption...)} instead.
 	 */
-	@Deprecated(since = "7")
+	@Deprecated(since = "7.0", forRemoval = true)
 	<T> T get(Class<T> entityType, Object id, LockMode lockMode);
-
-	/**
-	 * Return the persistent instance of the given entity class with the given identifier,
-	 * or null if there is no such persistent instance. If the instance is already associated
-	 * with the session, return that instance. This method never returns an uninitialized
-	 * instance. Obtain the specified lock mode if the instance exists.
-	 *
-	 * @param entityType the entity type
-	 * @param id an identifier
-	 * @param lockOptions the lock mode
-	 *
-	 * @return a persistent instance or null
-	 *
-	 * @deprecated The semantics of this method may change in a future release.
-	 *             Use {@link #find(Class, Object, LockOptions)} instead.
-	 */
-	@Deprecated(since = "7")
-	<T> T get(Class<T> entityType, Object id, LockOptions lockOptions);
 
 	/**
 	 * Return the persistent instance of the given named entity with the given identifier,
@@ -974,7 +954,7 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * @see SessionFactory#createGraphForDynamicEntity(String)
 	 * @see #find(EntityGraph, Object, FindOption...)
 	 */
-	@Deprecated(since = "7")
+	@Deprecated(since = "7", forRemoval = true)
 	Object get(String entityName, Object id);
 
 	/**
@@ -982,8 +962,6 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * or null if there is no such persistent instance. If the instance is already associated
 	 * with the session, return that instance. This method never returns an uninitialized
 	 * instance. Obtain the specified lock mode if the instance exists.
-	 * <p>
-	 * Convenient form of {@link #get(String, Object, LockOptions)}
 	 *
 	 * @param entityName the entity name
 	 * @param id an identifier
@@ -995,8 +973,26 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @deprecated The semantics of this method may change in a future release.
 	 */
-	@Deprecated(since = "7")
+	@Deprecated(since = "7.0", forRemoval = true)
 	Object get(String entityName, Object id, LockMode lockMode);
+
+	/**
+	 * Return the persistent instance of the given entity class with the given identifier,
+	 * or null if there is no such persistent instance. If the instance is already associated
+	 * with the session, return that instance. This method never returns an uninitialized
+	 * instance. Obtain the specified lock mode if the instance exists.
+	 *
+	 * @param entityType the entity type
+	 * @param id an identifier
+	 * @param lockOptions the lock mode
+	 *
+	 * @return a persistent instance or null
+	 *
+	 * @deprecated This method will be removed.
+	 *             Use {@link #find(Class, Object, FindOption...)} instead.
+	 */
+	@Deprecated(since = "7.0", forRemoval = true)
+	<T> T get(Class<T> entityType, Object id, LockOptions lockOptions);
 
 	/**
 	 * Return the persistent instance of the given entity class with the given identifier,
@@ -1010,13 +1006,51 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @return a persistent instance or null
 	 *
-	 * @deprecated The semantics of this method may change in a future release.
+	 * @deprecated This method will be removed.
+	 *             Use {@link SessionFactory#createGraphForDynamicEntity(String)}
+	 *             together with {@link #find(EntityGraph, Object, FindOption...)}
+	 *             to load {@link org.hibernate.metamodel.RepresentationMode#MAP
+	 *             dynamic entities}.
 	 */
-	@Deprecated(since = "7")
+	@Deprecated(since = "7.0", forRemoval = true)
 	Object get(String entityName, Object id, LockOptions lockOptions);
 
 	/**
-	 * Return the entity name for a persistent entity.
+	 * Obtain a lock on the given managed instance associated with this session,
+	 * using the given {@linkplain LockOptions lock options}.
+	 * <p>
+	 * This operation cascades to associated instances if the association is
+	 * mapped with {@link org.hibernate.annotations.CascadeType#LOCK}.
+	 *
+	 * @param object a persistent instance associated with this session
+	 * @param lockOptions the lock options
+	 *
+	 * @since 6.2
+	 *
+	 * @deprecated This method will be removed.
+	 *             Use {@linkplain #lock(Object, LockModeType, LockOption...)} instead
+	 */
+	@Deprecated(since = "7.0", forRemoval = true)
+	void lock(Object object, LockOptions lockOptions);
+
+	/**
+	 * Reread the state of the given managed instance from the underlying database,
+	 * obtaining the given {@link LockMode}.
+	 *
+	 * @param object a persistent instance associated with this session
+	 * @param lockOptions contains the lock mode to use
+	 *
+	 * @deprecated This method will be removed.
+	 *             Use {@linkplain #refresh(Object, RefreshOption...)} instead
+	 */
+	@Deprecated(since = "7.0", forRemoval = true)
+	void refresh(Object object, LockOptions lockOptions);
+
+	/**
+	 * Return the entity name for the given persistent entity.
+	 * <p>
+	 * If the given entity is an uninitialized proxy, the proxy is initialized by
+	 * side effect.
 	 *
 	 * @param object a persistent entity associated with this session
 	 *
@@ -1089,7 +1123,12 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * @return an instance of {@link IdentifierLoadAccess} for executing the lookup
 	 *
 	 * @throws HibernateException If the given class does not resolve as a mapped entity
+	 *
+	 * @deprecated This method will be removed.
+	 *             Use {@link #find(Class, Object, FindOption...)} instead.
+	 *             See {@link FindOption}.
 	 */
+	@Deprecated(since = "7.1", forRemoval = true)
 	<T> IdentifierLoadAccess<T> byId(Class<T> entityClass);
 
 	/**
@@ -1101,7 +1140,12 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 * @return an instance of {@link IdentifierLoadAccess} for executing the lookup
 	 *
 	 * @throws HibernateException If the given name does not resolve to a mapped entity
+	 *
+	 * @deprecated This method will be removed.
+	 *             Use {@link #find(String, Object, FindOption...)} instead.
+	 *             See {@link FindOption}.
 	 */
+	@Deprecated(since = "7.1", forRemoval = true)
 	<T> IdentifierLoadAccess<T> byId(String entityName);
 
 	/**
@@ -1309,11 +1353,14 @@ public interface Session extends SharedSessionContract, EntityManager {
 	void disableFetchProfile(String name) throws UnknownProfileException;
 
 	/**
-	 * Obtain a {@linkplain LobHelper factory} for instances of {@link java.sql.Blob}
+	 * Obtain a {@linkplain LobHelper} for instances of {@link java.sql.Blob}
 	 * and {@link java.sql.Clob}.
 	 *
 	 * @return an instance of {@link LobHelper}
+	 *
+	 * @deprecated Use {@link Hibernate#getLobHelper()} instead.
 	 */
+	@Deprecated(since="7.0", forRemoval = true)
 	LobHelper getLobHelper();
 
 	/**
@@ -1487,4 +1534,9 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 */
 	@Override @Deprecated(since = "6.0") @SuppressWarnings("rawtypes")
 	Query createQuery(CriteriaUpdate updateQuery);
+
+	@Override
+	default <T> T unwrap(Class<T> type) {
+		return SharedSessionContract.super.unwrap(type);
+	}
 }

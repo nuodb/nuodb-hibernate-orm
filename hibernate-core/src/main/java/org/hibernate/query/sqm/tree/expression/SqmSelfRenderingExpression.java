@@ -8,7 +8,7 @@ import java.util.function.Function;
 
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
-import org.hibernate.query.sqm.SqmExpressible;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.sql.ast.tree.expression.Expression;
@@ -17,11 +17,11 @@ import org.hibernate.sql.ast.tree.expression.Expression;
  * @author Steve Ebersole
  */
 public class SqmSelfRenderingExpression<T> extends AbstractSqmExpression<T> {
-	private final Function<SemanticQueryWalker, Expression> renderer;
+	private final Function<SemanticQueryWalker<?>, Expression> renderer;
 
 	public SqmSelfRenderingExpression(
-			Function<SemanticQueryWalker, Expression> renderer,
-			SqmExpressible<T> type,
+			Function<SemanticQueryWalker<?>, Expression> renderer,
+			SqmBindableType<T> type,
 			NodeBuilder criteriaBuilder) {
 		super( type, criteriaBuilder );
 		this.renderer = renderer;
@@ -51,4 +51,8 @@ public class SqmSelfRenderingExpression<T> extends AbstractSqmExpression<T> {
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
 		throw new UnsupportedOperationException();
 	}
+
+	// No equals() / hashCode() because this stuff is only
+	// ever used internally and is irrelevant for caching,
+	// so basing equality on the object identity is fine
 }
