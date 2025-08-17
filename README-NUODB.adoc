@@ -6,7 +6,7 @@ image::https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.p
 = Hibernate and NuoDB &nbsp; &nbsp; image:https://d33wubrfki0l68.cloudfront.net/571989f106f60bced5326825bd63918a55bdf0aa/dd52a/_/img/nuodb-bird-only-green.png[width=60]
 
 This is a fork of Hibernate ORM (http://github.com/hibernate/hibernate-orm).
-We have modified branches 6.2 and 6.6 to allow testing of NuoDB's Hibernate 6 dialect.
+We have modified several branches (5.6, 6.2, 6.6, 7.0) to allow testing of NuoDB's Hibernate driver and dialect.
 The tests of interest are the matrix tests (which allow testing against multiple databases).
 Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
 
