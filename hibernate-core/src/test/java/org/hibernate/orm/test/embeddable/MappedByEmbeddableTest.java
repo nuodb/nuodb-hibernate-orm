@@ -18,6 +18,7 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -122,6 +123,7 @@ public class MappedByEmbeddableTest extends BaseCoreFunctionalTestCase {
 	}
 
 	@Entity(name = "containing")
+	@Table(name = "xcontaining") // NuoDB: containing reserved word
 	public static class Containing {
 
 		@Id

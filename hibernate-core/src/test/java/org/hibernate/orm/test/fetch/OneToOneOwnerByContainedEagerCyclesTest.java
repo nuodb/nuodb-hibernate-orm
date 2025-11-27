@@ -86,7 +86,7 @@ public class OneToOneOwnerByContainedEagerCyclesTest extends BaseCoreFunctionalT
 		} );
 	}
 
-	@Entity(name = "Containing")
+	@Entity(name = "XContaining") // NuoDB: containing reserved word
 	public static class Containing {
 
 		@Id

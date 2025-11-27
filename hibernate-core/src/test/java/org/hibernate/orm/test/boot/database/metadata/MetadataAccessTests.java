@@ -5,7 +5,6 @@
 package org.hibernate.orm.test.boot.database.metadata;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hibernate.dialect.SimpleDatabaseVersion.ZERO_VERSION;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
@@ -19,20 +18,9 @@ import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.JdbcSettings;
-import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.DatabaseVersion;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.H2Dialect;
-import org.hibernate.dialect.HANADialect;
-import org.hibernate.dialect.HSQLDialect;
-import org.hibernate.dialect.MariaDBDialect;
-import org.hibernate.dialect.MySQLDialect;
-import org.hibernate.dialect.OracleDialect;
-import org.hibernate.dialect.PostgreSQLDialect;
-import org.hibernate.dialect.PostgresPlusDialect;
-import org.hibernate.dialect.SQLServerDialect;
-import org.hibernate.dialect.SpannerDialect;
-import org.hibernate.dialect.SybaseDialect;
 import org.hibernate.engine.jdbc.dialect.internal.DialectFactoryImpl;
 import org.hibernate.engine.jdbc.dialect.spi.DialectFactory;
 import org.hibernate.engine.jdbc.dialect.spi.DialectResolutionInfo;
@@ -41,20 +29,18 @@ import org.hibernate.engine.jdbc.env.spi.JdbcEnvironment;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.service.spi.ServiceException;
 import org.hibernate.service.spi.ServiceRegistryImplementor;
-
 import org.hibernate.testing.env.TestingDatabaseInfo;
 import org.hibernate.testing.logger.Triggerable;
 import org.hibernate.testing.orm.junit.DialectContext;
 import org.hibernate.testing.orm.junit.Jira;
 import org.hibernate.testing.orm.logger.LoggerInspectionExtension;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import org.jboss.logging.Logger;
 
 /**
  * @author Steve Ebersole
@@ -105,35 +91,51 @@ public class MetadataAccessTests {
 				.isEmpty();
 	}
 
+	@SuppressWarnings("unchecked")
 	static Stream<Arguments> dialects() {
+		// NUODB: Start
+		Class<? extends Dialect> nuoDbDialectClass = H2Dialect.class;
+
+		try {
+			nuoDbDialectClass = (Class<? extends Dialect>)Class.forName("com.nuodb.hibernate.NuoDBDialect");
+		} catch (ClassNotFoundException e) {
+			java.util.logging.Logger.getLogger(MetadataAccessTests.class.getName()).severe("Unable to load NuoDBDialect class");
+		}
+		// NUODB: End
+
 		return Stream.of(
-				Arguments.of( "DB2", DB2Dialect.class,
-						getVersionConstant( DB2Dialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "EnterpriseDB", PostgresPlusDialect.class,
-						getVersionConstant( PostgreSQLDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "H2", H2Dialect.class,
-						getVersionConstant( H2Dialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "HSQL Database Engine", HSQLDialect.class,
-						getVersionConstant( HSQLDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "HDB", HANADialect.class,
-						getVersionConstant( HANADialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "MariaDB", MariaDBDialect.class,
-						getVersionConstant( MariaDBDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "MySQL", MySQLDialect.class,
-						getVersionConstant( MySQLDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "Oracle", OracleDialect.class,
-						getVersionConstant( OracleDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "PostgreSQL", PostgreSQLDialect.class,
-						getVersionConstant( PostgreSQLDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "Google Cloud Spanner", SpannerDialect.class, ZERO_VERSION ),
-				Arguments.of( "Microsoft SQL Server", SQLServerDialect.class,
-						getVersionConstant( SQLServerDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "Sybase SQL Server", SybaseDialect.class,
-						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "Adaptive Server Enterprise", SybaseDialect.class,
-						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") ),
-				Arguments.of( "ASE", SybaseDialect.class,
-						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") )
+// NUODB: Start - only NuoDB is running, so all the others fail
+//				Arguments.of( "DB2", DB2Dialect.class,
+//						getVersionConstant( DB2Dialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "EnterpriseDB", PostgresPlusDialect.class,
+//						getVersionConstant( PostgreSQLDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "H2", H2Dialect.class,
+//						getVersionConstant( H2Dialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "HSQL Database Engine", HSQLDialect.class,
+//						getVersionConstant( HSQLDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "HDB", HANADialect.class,
+//						getVersionConstant( HANADialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "MariaDB", MariaDBDialect.class,
+//						getVersionConstant( MariaDBDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "MySQL", MySQLDialect.class,
+//						getVersionConstant( MySQLDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "Oracle", OracleDialect.class,
+//						getVersionConstant( OracleDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "PostgreSQL", PostgreSQLDialect.class,
+//						getVersionConstant( PostgreSQLDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "Google Cloud Spanner", SpannerDialect.class, ZERO_VERSION ),
+//				Arguments.of( "Microsoft SQL Server", SQLServerDialect.class,
+//						getVersionConstant( SQLServerDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "Sybase SQL Server", SybaseDialect.class,
+//						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "Adaptive Server Enterprise", SybaseDialect.class,
+//						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") ),
+//				Arguments.of( "ASE", SybaseDialect.class,
+//						getVersionConstant( SybaseDialect.class, "MINIMUM_VERSION") )
+				Arguments.of( "NuoDB", nuoDbDialectClass,
+						getVersionConstant( nuoDbDialectClass, "MINIMUM_VERSION") )
+// NUODB: End
+
 		);
 	}
 

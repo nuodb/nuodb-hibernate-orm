@@ -7,7 +7,10 @@ package org.hibernate.orm.test.exceptionhandling;
 import java.sql.Timestamp;
 
 import org.hibernate.dialect.H2Dialect;
-
+import org.hibernate.orm.test.exceptionhandling.StaleObjectMergeTest.A;
+import org.hibernate.orm.test.exceptionhandling.StaleObjectMergeTest.B;
+import org.hibernate.orm.test.exceptionhandling.StaleObjectMergeTest.C;
+import org.hibernate.orm.test.exceptionhandling.StaleObjectMergeTest.D;
 import org.hibernate.testing.orm.junit.JiraKey;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.RequiresDialect;
@@ -165,7 +168,7 @@ public class StaleObjectMergeTest {
 		private long id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "xver") // NuoDB: ver reserved word
 		private int version;
 
 		public Long getId() {
@@ -192,7 +195,7 @@ public class StaleObjectMergeTest {
 		private long id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "xver") // NuoDB: ver reserved word
 		private Integer version;
 
 		public Long getId() {
@@ -211,7 +214,7 @@ public class StaleObjectMergeTest {
 		private long id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "xver") // NuoDB: ver reserved word
 		private Timestamp version;
 
 		public Long getId() {

@@ -4,6 +4,9 @@
  */
 package org.hibernate.orm.test.jpa.criteria.basic;
 
+import static org.hibernate.testing.transaction.TransactionUtil.doInJPA;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -14,8 +17,8 @@ import java.util.List;
 
 import org.hibernate.Session;
 import org.hibernate.community.dialect.AltibaseDialect;
-import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.community.dialect.DerbyDialect;
+import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.PostgresPlusDialect;
 import org.hibernate.dialect.SybaseDialect;
 import org.hibernate.orm.test.jpa.metamodel.AbstractMetamodelSpecificTest;
@@ -23,14 +26,14 @@ import org.hibernate.orm.test.jpa.metamodel.Phone;
 import org.hibernate.orm.test.jpa.metamodel.Product;
 import org.hibernate.orm.test.jpa.metamodel.Product_;
 import org.hibernate.query.Query;
+import org.hibernate.query.common.TemporalUnit;
 import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.hibernate.query.criteria.JpaCriteriaQuery;
 import org.hibernate.query.criteria.JpaDerivedRoot;
 import org.hibernate.query.criteria.JpaSubQuery;
-import org.hibernate.query.common.TemporalUnit;
-
-import org.hibernate.testing.orm.junit.JiraKey;
+import org.hibernate.testing.orm.junit.DialectContext;
 import org.hibernate.testing.orm.junit.Jira;
+import org.hibernate.testing.orm.junit.JiraKey;
 import org.hibernate.testing.orm.junit.SkipForDialect;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,9 +47,6 @@ import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.ParameterExpression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-
-import static org.hibernate.testing.transaction.TransactionUtil.doInJPA;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests that various expressions operate as expected
@@ -385,16 +385,22 @@ public class ExpressionsTest extends AbstractMetamodelSpecificTest {
 					entityManager.createQuery(criteria).getSingleResult();
 				}
 		);
-		doInJPA(
-				this::entityManagerFactory,
-				entityManager -> {
-					CriteriaQuery<Duration> criteria = builder.createQuery(Duration.class);
-					criteria.select( builder.durationBetween( builder.localDate(),
-							builder.subtractDuration( builder.localDate(),
-									builder.duration(2, TemporalUnit.DAY) ) ) );
-					assertEquals( Duration.ofDays(2), entityManager.createQuery(criteria).getSingleResult() );
-				}
-		);
+		// NUODB: START - skip this test
+		// Duration uses seconds to do calculation but can't do TIME intervals between DATEs
+		// in NuoDB, only between TIMESTAMPs
+		if (!DialectContext.getDialect().getClass().getName().startsWith("com.nuodb")) {
+			doInJPA(
+					this::entityManagerFactory,
+					entityManager -> {
+						CriteriaQuery<Duration> criteria = builder.createQuery(Duration.class);
+						criteria.select( builder.durationBetween( builder.localDate(),
+								builder.subtractDuration( builder.localDate(),
+										builder.duration(2, TemporalUnit.DAY) ) ) );
+						assertEquals( Duration.ofDays(2), entityManager.createQuery(criteria).getSingleResult() );
+					}
+			);
+		}
+		// NUODB: END
 		doInJPA(
 				this::entityManagerFactory,
 				entityManager -> {

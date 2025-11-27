@@ -144,7 +144,7 @@ public class MappedSuperclassWithGenericsTest {
 
 	@Entity( name = "SimpleEntity" )
 	public static class SimpleEntity extends GenericIdBaseEntity<Long> {
-		@Column
+		@Column(name = "xstring")
 		private String string;
 
 		public SimpleEntity() {

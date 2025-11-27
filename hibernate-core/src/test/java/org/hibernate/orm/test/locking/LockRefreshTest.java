@@ -12,6 +12,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.Version;
 
 import org.hibernate.testing.orm.junit.JiraKey;
+import org.hibernate.orm.test.locking.JoinedInheritanceOptimisticForceIncrementTest.Employee;
 import org.hibernate.testing.junit4.BaseNonConfigCoreFunctionalTestCase;
 import org.hibernate.testing.junit4.CustomParameterized;
 import org.junit.Test;
@@ -152,7 +153,7 @@ public class LockRefreshTest extends BaseNonConfigCoreFunctionalTestCase {
 		private String department;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "xver") // NuoDB: ver reserved word
 		private int version;
 	}
 }

@@ -27,6 +27,7 @@ import org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.ActionGroup
 
 import org.hibernate.testing.orm.jpa.PersistenceUnitInfoAdapter;
 import org.hibernate.testing.orm.junit.BaseUnitTest;
+import org.hibernate.testing.orm.junit.RequiresDialect;
 import org.hibernate.testing.util.ServiceRegistryUtil;
 import org.junit.jupiter.api.Test;
 
@@ -279,6 +280,7 @@ public class ConfigurationObjectSettingTest {
 	}
 
 	@Test
+	@RequiresDialect(value = H2Dialect.class) // NUODB: Test expicitly requires H2
 	public void testSchemaGenSettings() {
 		verifySchemaGenSettings(
 				AvailableSettings.JAKARTA_HBM2DDL_DATABASE_ACTION,

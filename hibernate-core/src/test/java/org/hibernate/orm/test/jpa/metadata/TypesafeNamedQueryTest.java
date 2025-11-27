@@ -21,6 +21,13 @@ public class TypesafeNamedQueryTest {
 	@Test void test(EntityManagerFactoryScope scope) {
 		scope.inTransaction( entityManager -> {
 			Record record1 = new Record("Hello, World!");
+
+			// NUODB: Start
+			// Add a short delay so the time stamps are actually different. Otherwise sorting by
+			// time stamp (Record.AllRecordsAsTuples query) is arbitrary.
+			try { Thread.sleep(1); } catch (InterruptedException e) {}
+			// NUODB: End
+
 			Record record2 = new Record("Goodbye!");
 			entityManager.persist(record1);
 			entityManager.persist(record2);

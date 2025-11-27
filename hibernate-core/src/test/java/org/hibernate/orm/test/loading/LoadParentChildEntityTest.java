@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +64,7 @@ public class LoadParentChildEntityTest {
 
 
 	@Entity(name = "containing")
+	@Table(name = "xcontaining") // NuoDB: containing reserved word
 	public static class ContainingEntity {
 
 		@Id

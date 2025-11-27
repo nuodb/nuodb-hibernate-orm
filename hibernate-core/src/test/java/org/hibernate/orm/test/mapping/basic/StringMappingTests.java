@@ -5,6 +5,8 @@
 package org.hibernate.orm.test.mapping.basic;
 
 import java.sql.Types;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
@@ -84,6 +86,7 @@ public class StringMappingTests {
 
 		//tag::basic-string-example[]
 		// will be mapped using VARCHAR
+		@Column(name = "xstring")
 		String string;
 
 		// will be mapped using CLOB

@@ -12,22 +12,27 @@ import jakarta.persistence.NamedQuery;
 
 import java.time.LocalDateTime;
 
-@NamedQuery(name = "TextById",
-		query = "select text from Record where id = ?1")
-@NamedQuery(name = "AllRecords",
-		query = "from Record order by timestamp, id")
-@NamedQuery(name = "AllRecordsAsTuples",
-		query = "select id, text from Record order by timestamp, id")
-@NamedEntityGraph(name = "CompleteRecord",
-		includeAllAttributes = true)
+@NamedQuery(name = "TextById", query = "select text from Record where id = ?1")
+@NamedQuery(name = "AllRecords", query = "from Record order by timestamp, id")
+@NamedQuery(name = "AllRecordsAsTuples", query = "select id, text from Record order by timestamp, id")
+@NamedEntityGraph(name = "CompleteRecord", includeAllAttributes = true)
 @Entity
 public class Record {
-	@Id @GeneratedValue
+	@Id
+	@GeneratedValue
 	String id;
 	String text;
 	LocalDateTime timestamp = LocalDateTime.now();
-	Record() {}
+
+	Record() {
+	}
+
 	public Record(String text) {
 		this.text = text;
+	}
+
+	@Override
+	public String toString() {
+		return "id=" + id + ", text='" + text + "', ts=" + timestamp;
 	}
 }

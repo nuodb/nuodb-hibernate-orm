@@ -35,6 +35,7 @@ import org.hibernate.testing.orm.domain.gambit.EntityOfBasics;
 import org.hibernate.testing.orm.domain.gambit.EntityOfLists;
 import org.hibernate.testing.orm.domain.gambit.EntityOfMaps;
 import org.hibernate.testing.orm.domain.gambit.SimpleEntity;
+import org.hibernate.testing.orm.junit.DialectContext;
 import org.hibernate.testing.orm.junit.DialectFeatureChecks;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.Jira;
@@ -2098,8 +2099,12 @@ public class FunctionTests {
 
 					session.createQuery("select extract(week of month from current date) from EntityOfBasics e", Integer.class)
 							.list();
-					session.createQuery("select extract(week of year from current date) from EntityOfBasics e", Integer.class)
+					// NUODB: START  No support for extract(WEEK)
+					if (!DialectContext.getDialect().getClass().getName().contains("nuodb")) {
+						session.createQuery("select extract(week of year from current date) from EntityOfBasics e", Integer.class)
 							.list();
+					}
+					// NUODB: END
 
 					assertThat( session.createQuery("select extract(year from date 1974-03-25)", Integer.class).getSingleResult(), is(1974) );
 					assertThat( session.createQuery("select extract(month from date 1974-03-25)", Integer.class).getSingleResult(), is(3) );
@@ -2205,18 +2210,22 @@ public class FunctionTests {
 							is(2)
 					);
 
-					assertThat(
-							session.createQuery("select extract(week from date 2019-05-27) from EntityOfBasics", Integer.class).getResultList().get(0),
-							is(22)
-					);
-					assertThat(
-							session.createQuery("select extract(week from date 2019-06-02) from EntityOfBasics", Integer.class).getResultList().get(0),
-							is(22)
-					);
-					assertThat(
-							session.createQuery("select extract(week from date 2019-06-03) from EntityOfBasics", Integer.class).getResultList().get(0),
-							is(23)
-					);
+					// NUODB: START  No support for extract(WEEK)
+					if (!DialectContext.getDialect().getClass().getName().contains("nuodb")) {
+						assertThat(
+								session.createQuery("select extract(week from date 2019-05-27) from EntityOfBasics", Integer.class).getResultList().get(0),
+								is(22)
+						);
+						assertThat(
+								session.createQuery("select extract(week from date 2019-06-02) from EntityOfBasics", Integer.class).getResultList().get(0),
+								is(22)
+						);
+						assertThat(
+								session.createQuery("select extract(week from date 2019-06-03) from EntityOfBasics", Integer.class).getResultList().get(0),
+								is(23)
+						);
+					}
+					// NUODB: END
 
 					assertThat(
 							session.createQuery("select extract(day of year from date 2019-05-30) from EntityOfBasics", Integer.class).getResultList().get(0),

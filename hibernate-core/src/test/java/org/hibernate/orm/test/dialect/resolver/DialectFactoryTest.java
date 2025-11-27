@@ -3,6 +3,7 @@
  * Copyright Red Hat Inc. and Hibernate Authors
  */
 package org.hibernate.orm.test.dialect.resolver;
+//package org.hibernate.orm.test.dialect.resolver;
 
 import org.hibernate.HibernateException;
 import org.hibernate.boot.registry.BootstrapServiceRegistry;
@@ -24,6 +25,7 @@ import org.hibernate.testing.util.ServiceRegistryUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -110,7 +112,20 @@ public class DialectFactoryTest extends BaseUnitTestCase {
 	}
 
 	@Test
+	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void testPreregisteredDialects() {
+		// NUODB: Start
+		Class<? extends Dialect> nuoDbDialectClass = H2Dialect.class;
+		DialectResolver nuoDbResolver = null;
+
+		try {
+			nuoDbDialectClass = (Class<? extends Dialect>)Class.forName("com.nuodb.hibernate.NuoDBDialect");
+			nuoDbResolver =  (DialectResolver)Class.forName("com.nuodb.hibernate.NuoDBDialectResolver").newInstance();
+		} catch (Exception e) {
+			java.util.logging.Logger.getLogger(DialectFactoryTest.class.getName()).severe("Unable to load NuoDBDialect class");
+		}
+		// NUODB: End
+
 		DialectResolver resolver = new StandardDialectResolver();
 		testDetermination( "HSQL Database Engine", HSQLDialect.class, resolver );
 		testDetermination( "H2", H2Dialect.class, resolver );
@@ -155,6 +170,15 @@ public class DialectFactoryTest extends BaseUnitTestCase {
 		testDetermination( "Oracle", 9, OracleDialect.class, resolver );
 		testDetermination( "Oracle", 10, OracleDialect.class, resolver );
 		testDetermination( "Oracle", 11, OracleDialect.class, resolver );
+		// NUODB: Start
+		resolver = nuoDbResolver;
+
+		if (resolver != null ) {
+				testDetermination( "NuoDB", 5, nuoDbDialectClass, resolver );
+				testDetermination( "NuoDB", 6, nuoDbDialectClass, resolver );
+				testDetermination( "NuoDB", 7, nuoDbDialectClass, resolver );
+		}
+		// NUODB: End
 	}
 
 	@Test
@@ -189,6 +213,7 @@ public class DialectFactoryTest extends BaseUnitTestCase {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void testDialectNotFound() {
 		Map properties = Collections.EMPTY_MAP;

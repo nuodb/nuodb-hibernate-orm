@@ -21,6 +21,8 @@ import org.junit.Test;
 
 import static org.hibernate.testing.transaction.TransactionUtil.doInHibernate;
 
+import org.hibernate.orm.test.locking.JoinedInheritanceOptimisticForceIncrementTest.Employee;
+
 /**
  * @author Jeroen Stiekema (jeroen@stiekema.eu)
  */
@@ -72,7 +74,7 @@ public class JoinedInheritanceOptimisticForceIncrementTest extends BaseNonConfig
 		private Long id;
 
 		@Version
-		@Column(name = "ver")
+		@Column(name = "xver") // NuoDB: ver reserved word
 		private Integer version;
 
 		private String name;

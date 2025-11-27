@@ -13,6 +13,7 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
 
 import org.hibernate.Session;
 import org.hibernate.cfg.Configuration;
@@ -88,6 +89,7 @@ public class OrderByEmbeddableX2Test extends BaseCoreFunctionalTestCase {
 	}
 
 	@Entity(name = "containing")
+	@Table(name = "xcontaining") // NuoDB: containing reserved word
 	public static class Containing {
 
 		@Id

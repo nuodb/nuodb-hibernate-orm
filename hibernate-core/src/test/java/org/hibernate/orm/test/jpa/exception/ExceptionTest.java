@@ -125,7 +125,7 @@ public class ExceptionTest {
 							String hqlDelete = "delete from Music where name = :name";
 							entityManager.createQuery( hqlDelete ).setParameter( "name", "Jazz" ).executeUpdate();
 							entityManager.getTransaction().commit();
-							fail();
+							fail("Delete should fail due to constraint violation");
 						}
 						catch ( PersistenceException e ) {
 							assertTrue( e instanceof ConstraintViolationException, "Should be a constraint violation" );

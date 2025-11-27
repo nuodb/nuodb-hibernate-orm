@@ -114,6 +114,10 @@ public class  BatchOptimisticLockingTest extends
 							expected.getMessage()
 									.contains( "Record has changed since last read in table 'Person'" )
 					);
+				// NUODB: START
+				} else if (getDialect().getClass().getPackage().getName().equals("com.nuodb.hibernate")) {
+					assertTrue(expected.getMessage().startsWith("Batch update returned unexpected row count from update"));
+				// NUODB: END
 				} else {
 					assertTrue(
 							expected.getMessage()

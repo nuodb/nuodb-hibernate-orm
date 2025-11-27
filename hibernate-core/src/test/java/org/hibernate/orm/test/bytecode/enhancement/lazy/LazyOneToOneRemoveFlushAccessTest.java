@@ -115,7 +115,7 @@ public class LazyOneToOneRemoveFlushAccessTest {
 		@OneToOne( mappedBy = "parent", fetch = FetchType.LAZY )
 		private ContainingEntity child;
 
-		@OneToOne( mappedBy = "containing" )
+		@OneToOne( mappedBy = "xcontaining" ) // NuoDB: Containing reserved word
 		private ContainedEntity contained;
 
 		public Integer getId() {
@@ -158,8 +158,8 @@ public class LazyOneToOneRemoveFlushAccessTest {
 		private Integer id;
 
 		@OneToOne( fetch = FetchType.LAZY )
-		@JoinColumn( name = "containing" )
-		private ContainingEntity containing;
+		@JoinColumn( name = "xcontaining" ) // NuoDB: Containing reserved word
+		private ContainingEntity xcontaining;
 
 		public Integer getId() {
 			return id;
@@ -170,11 +170,11 @@ public class LazyOneToOneRemoveFlushAccessTest {
 		}
 
 		public ContainingEntity getContaining() {
-			return containing;
+			return xcontaining; // NuoDB: Containing reserved word
 		}
 
 		public void setContaining(ContainingEntity containing) {
-			this.containing = containing;
+			this.xcontaining = containing; // NuoDB: Containing reserved word
 		}
 	}
 }

@@ -4,6 +4,7 @@
  */
 package org.hibernate.orm.test.loading;
 
+import org.hibernate.orm.test.loading.LoadContainedInDoubleContainingTest.OtherContained;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.SessionFactory;
 import org.hibernate.testing.orm.junit.SessionFactoryScope;
@@ -47,7 +48,7 @@ public class LoadContainedInDoubleContainingTest {
 		} );
 	}
 
-	@Entity(name = "Containing")
+	@Entity(name = "XContaining") // NuoDB: containing reserved word
 	public static class Containing {
 
 		@Id

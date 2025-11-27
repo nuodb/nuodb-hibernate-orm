@@ -22,6 +22,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
 
 @JiraKey(value = "HHH-16031")
 public class ManyToManyInverseJoinColumnSortedSetTest extends BaseCoreFunctionalTestCase {
@@ -82,6 +83,7 @@ public class ManyToManyInverseJoinColumnSortedSetTest extends BaseCoreFunctional
 	}
 
 	@Entity(name = "containing")
+	@Table(name = "xcontaining") // NuoDB: containing reserved word
 	public static class ContainingEntity {
 		@Id
 		private Integer id;
