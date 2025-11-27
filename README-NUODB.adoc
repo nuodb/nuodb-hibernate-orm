@@ -9,9 +9,11 @@ image::https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.p
 
 This is a fork of Hibernate ORM (http://github.com/hibernate/hibernate-orm).
 We have modified branches 5.6, 6.1, 6.2, 6.6 and 7.0 to allow testing of NuoDB's Hibernate dialect.
+
 The tests of interest are the profile tests in `hibernate-core` sub-project (which allow testing against multiple databases).
-Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
-Hence we use _profiles_.
+
+* Unfortunately the section on Matrix testing (in the original README) is yet to be written (since at least 2019) and presumably never will be.
+Hence we use _profiles_ instead.
 
 IMPORTANT: If the NuoDB Hibernate JAR version changes, edit this README and change `:jarversion:` at the top.
 
@@ -23,26 +25,25 @@ To run the tests for NuoDB:
 
 . Windows users are recommended to use `git bash` or WSL rather than `CMD` or _PowerShell_.
 
-. You must have Java JDK 11, 17 or 21 installed.  Java 8 isn't supported by Hibernate 6.x, it requires Java 11 or later.
+. You must have Java JDK 17 or 21 installed.  Java 8 and 11 aren't supported by Hibernate 7.x, it requires Java 17 or later.
 
 * _Option 1:_ Install `jenv` from https://github.com/jenv/jenv to manage your JVMs.
 ** You may need to tell it which JDKs (if any) you already have installed.
-** There is a `.java-version` file in this project, telling `jenv` to use Java 11.
-** If necessary, use `jenv` to switch to Java 11.
-For example, to use 11.0.26, run `jenv local 11.0.26`.
+** There is a `.java-version` file in this project, telling `jenv` to use Java 17.
+** If necessary, use `jenv` to switch to Java 17.
+For example, to use 17.0.14, run `jenv local 17.0.14`.
 * _Option 2:_ use `sdkman`: https://sdkman.io
 ** `skdman` requires `git bash` or WSL on Windows.
-** To set the same java version: `sdk use java 11.0.26`
+** To set the same java version: `sdk use java 17.0.14`
 
-. Next, make sure you have our Hibernate 6 dialect jar available:
+. Next, make sure you have our Hibernate 7 dialect jar available:
 
-* Clone https://github.com/nuodb/HibernateDialect6
+* Clone https://github.com/nuodb/HibernateDialect6 (yes, this project needs renaming).
 * Checkout the branch to match the branch of this project that you are using.
-** 6.1 and 6.2 require _HibernateDialect6_ branch `hib-6.2`
-** 6.6 requires _HibernateDialect6_ branch `hib-6.6`
+** 7.0 and 7.1 require _HibernateDialect6_ branch `hib-7.0`
 * Run `mvn -Dgpg.skip install` - see https://github.com/nuodb/HibernateDialect6#readme[project README].
-* Check the version in the POM - it will be of the form `nuodb-hibernate.NN.x.x-hib6`
-   * You will need to set `DIALECT_VERSION` to `NN.x.x-hib6` to match - see below.
+* Check the version in the POM - it will be of the form `nuodb-hibernate.NN.x.x-hib7`
+   * You will need to set `DIALECT_VERSION` to `NN.x.x-hib7` to match - see below.
 
 . This project's gradle build file assumes you have your maven repository in
    the default location (`.m2` in your home directory).
@@ -63,7 +64,7 @@ set ADDITIONAL_REPO=c:\Users\<your-login>\.m2\repository\com\nuodb\hibernate\nuo
 [start=6]
 . Set the Hibernate dialect - this must match the Hibernate 6 dialect you installed earlier.
 
-* **Note:** the value you set _should_ have `-hib6` in the end, but that's optional:
+* **Note:** the value you set _should_ have `-hib7` in the end, but that's optional:
 +
 [source%autofit,sh,subs="verbatim,attributes"]
 ----
@@ -98,7 +99,7 @@ To avoid this, use `SET` or `export` to set the environment variable `HIBERNATE_
 . Running the Tests
 
 * **WARNING:** You _must_ use the `--rerun-tasks` option after the first run, otherwise Gradle may not run any tests at all (it only runs tests it thinks have changed and typically we only change our JAR).
-Tests can take 20-40 minutes to run.
+Tests can take 40-60 minutes to run depending on your machine.
 
 * Run the tests using a database _Profile_ (the `-Pdb` option): 
 ** This obeys the exclusions in `hibernate-core.gradle` so a `green-list` is no longer needed (or supported).
@@ -120,6 +121,7 @@ DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-
 
 * After running tests:
 ** _15470 tests completed, 0 failed, 2596 skipped_ (NuoDB V7.0.1)
+** _15404 tests completed, 0 failed, 2606 skipped_ (NuoDB V6.02)
 
 . Full details of all failing and ignored tests can be found at link:hibernate-core/target/reports/tests/test/index.html[].
 ** This directory is not populated until _after_ the test-run has finished and will be deleted by the next test run (take a copy if necessary).
@@ -136,7 +138,7 @@ DIALECT_VERSION={jarversion} ./gradlew --rerun-tasks -Pdb=nuodb clean hibernate-
  ... hibernate-core:test --tests '*IntegTest.singleMethod'
 ```
 
-* Note that the old _green-list_ option is not supported by the Hibernate tests from version 6.
+* Note that the old _green-list_ option is not supported by the Hibernate tests since version 6.
 
 * Instead, edit `hibernate-core/hibernate-core.gradle` and find the `test.filter` section.
 You can use the same patterns as above.
@@ -161,7 +163,7 @@ test {
 ** Adding an `includeTestsMatching` will cause gradle to _only_ run the included tests, and overrides any excludes for the same tests
 (this is like the old _green-list_).
 
-* Many tests that will never pass, typically due to syntax and features NuoDB does not support, are already listed in this section (the equivalent of a _black-list_).
+* Many tests that will never pass, typically due to syntax and features NuoDB does not support, are already excluded in this section (the equivalent of a _black-list_).
 
 == Notes and Warnings
 
