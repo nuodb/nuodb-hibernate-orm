@@ -32,7 +32,7 @@ public class VersionedCompiledCode extends AbstractCompiledCode{
 	}
 
 	@Version
-	@Column(name = "ver")
+	@Column(name = "xver") // NuoDB: ver reserved word
 	public Integer getVersion() {
 		return version;
 	}

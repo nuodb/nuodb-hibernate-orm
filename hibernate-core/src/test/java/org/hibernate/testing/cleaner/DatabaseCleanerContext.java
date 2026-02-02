@@ -1,0 +1,54 @@
+/*
+ * Hibernate, Relational Persistence for Idiomatic Java
+ *
+ * License: GNU Lesser General Public License (LGPL), version 2.1 or later.
+ * See the lgpl.txt file in the root directory or <http://www.gnu.org/licenses/lgpl-2.1.html>.
+ */
+package org.hibernate.testing.cleaner;
+
+import org.slf4j.LoggerFactory;
+
+/**
+ * NUODB OVERRIDE CLASS
+ * <p>
+ * Added a DatabaseCleaner for NuoDB.
+ * 
+ * @author Christian Beikov
+ */
+public final class DatabaseCleanerContext {
+
+	public static final DatabaseCleaner CLEANER;
+
+	private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(DatabaseCleanerContext.class);
+
+	static {
+		LOGGER.info("Using NuoDB's modified DatabaseCleanerContext");
+
+		CLEANER = JdbcConnectionContext.workReturning(connection -> {
+			final DatabaseCleaner[] cleaners = new DatabaseCleaner[] { //
+					new DB2DatabaseCleaner(), //
+					new H2DatabaseCleaner(), //
+					new SQLServerDatabaseCleaner(), //
+					new MySQL5DatabaseCleaner(), //
+					new MySQL8DatabaseCleaner(), //
+					new MariaDBDatabaseCleaner(), //
+					new OracleDatabaseCleaner(), //
+					new NuoDBDatabaseCleaner(), // Added NUODB Cleaner
+					new PostgreSQLDatabaseCleaner() //
+			};
+
+			for (DatabaseCleaner cleaner : cleaners) {
+				if (cleaner.isApplicable(connection)) {
+					LOGGER.info("CLEANER is {}", cleaner.getClass());
+					return cleaner;
+				}
+			}
+
+			LOGGER.error("No suitable cleaner found");
+			return null;
+		});
+	}
+
+	private DatabaseCleanerContext() {
+	}
+}

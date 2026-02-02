@@ -32,7 +32,7 @@ dependencies {
     compile( libraries.jboss_tx_spi ) {
         transitive=false;
     }
-    compile ( libraries.jboss_jta ) {
+    compile( libraries.jboss_jta ) {
         transitive=false;
     }
 }

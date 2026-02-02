@@ -34,6 +34,13 @@ ext {
                         'jdbc.url'   : 'jdbc:derby:target/tmp/derby/hibernate_orm_test;databaseName=hibernate_orm_test;create=true',
                         'connection.init_sql' : ''
                 ],
+                nuodb : [
+                        'db.dialect' : 'com.nuodb.hibernate.nuodb-hibernate.NuoDBDialect',
+                        'jdbc.driver': 'com.nuodb.jdbc.Driver',
+                        'jdbc.user'  : 'hibernate_orm_test',
+                        'jdbc.pass'  : 'hibernate_orm_test',
+                        'jdbc.url'   : 'jdbc:com.nuodb.hib://localhost/hibernate_orm_test?isolation=read_committed&lock-wait-timeout=10'
+                ],
                 pgsql : [
                         'db.dialect' : 'org.hibernate.dialect.PostgreSQL95Dialect',
                         'jdbc.driver': 'org.postgresql.Driver',

@@ -49,7 +49,8 @@ public abstract class BaseUnitTestCase {
 	protected final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
 	@Rule
-	public TestRule globalTimeout = Timeout.millis( TimeUnit.MINUTES.toMillis( 30 ) ); // no test should run longer than 30 minutes
+	// NUODB: Chaneg timeout from 30 t0 3, otherwise tests take too long to run.
+	public TestRule globalTimeout = Timeout.millis( TimeUnit.MINUTES.toMillis( 3 ) ); // no test should run longer than 3 minutes
 
 	public BaseUnitTestCase() {
 		if ( enableConnectionLeakDetection ) {

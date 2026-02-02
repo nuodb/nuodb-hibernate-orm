@@ -1,5 +1,7 @@
 <img src="https://static.jboss.org/hibernate/images/hibernate_logo_whitebkg_200px.png" />
 
+NOTE: This is a fork of the `hibernate-orm` project and we use it to test NuoDB's Hibernate Dialects.
+For more information see xref:README-NUODB.adoc[].
 
 Hibernate ORM is a library providing Object/Relational Mapping (ORM) support
 to applications, libraries, and frameworks.

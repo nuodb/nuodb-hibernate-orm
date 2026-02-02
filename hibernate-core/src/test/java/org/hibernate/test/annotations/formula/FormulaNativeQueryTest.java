@@ -27,7 +27,7 @@ import static org.hibernate.testing.transaction.TransactionUtil.doInHibernate;
 import static org.junit.Assert.assertEquals;
 
 /**
- * @author Алексей Макаров
+ * @author 
  * @author Gail Badner
  */
 @TestForIssue(jiraKey = "HHH-7525")

@@ -17,6 +17,8 @@ import org.hibernate.bytecode.internal.bytebuddy.ByteBuddyState;
 import org.hibernate.testing.TestForIssue;
 import org.junit.Test;
 
+import javax.persistence.Column;
+
 @TestForIssue(jiraKey = "HHH-12786")
 public class ByteBuddyBasicProxyFactoryTest {
 
@@ -62,6 +64,7 @@ public class ByteBuddyBasicProxyFactoryTest {
 
 	public static class Entity {
 
+		@Column(name="xstring") // NUODB: String is a reserved word
 		private String string;
 
 		private boolean bool;

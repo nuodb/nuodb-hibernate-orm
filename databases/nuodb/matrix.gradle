@@ -1,0 +1,33 @@
+/*
+ * Hibernate, Relational Persistence for Idiomatic Java
+ *
+ * License: GNU Lesser General Public License (LGPL), version 2.1 or later.
+ * See the lgpl.txt file in the root directory or <http://www.gnu.org/licenses/lgpl-2.1.html>.
+ */
+
+/*
+if (System.env['DIALECT_VERSION'] == null) {
+    println("matrix.gradle: DIALECT_VERSION environment variable should be set to 20.0.0 or later")
+    
+    if (nuodbHibernateVersion.isUnknown()) {
+        println()
+        println(">> ERROR: Unknown Dialect JAR version, unable to continue")
+        println()
+        System.exit(-1);
+    }
+        
+    println("    Defaulting to ${nuodbHibernateVersion.latestVersion}")
+}
+
+ext.nuodbHibernateJarVersion = System.env['DIALECT_VERSION'] ?: nuodbHibernateVersion.latestVersion;
+*/
+
+// Sanity check.  Makes sure these are set (in the project's modified build.xml)
+println "matrix.gradle: NuoDB JDBC JAR version=${nuodbJdbcJarVersion}";
+println "matrix.gradle: NuoDB Hibernate JAR version=${nuodbHibernateJarVersion}";
+println "matrix.gradle: NuoDB version=${nuodbVersion}";
+println "matrix.gradle: NuoDB database version=${nuodbDatabaseVersion}";
+println "matrix.gradle: Matrix build using NuoDB Dialect V${nuodbHibernateJarVersion}"
+
+jdbcDependency "com.nuodb.jdbc:nuodb-jdbc:${nuodbJdbcJarVersion}"
+jdbcDependency "com.nuodb.hibernate:nuodb-hibernate:${nuodbHibernateJarVersion}"

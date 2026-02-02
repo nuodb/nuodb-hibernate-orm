@@ -26,6 +26,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import javax.persistence.Table;
 
 @RunWith(BytecodeEnhancerRunner.class)
 @TestForIssue(jiraKey = "HHH-15090")
@@ -68,6 +69,7 @@ public class LazyLoadingAndInheritanceTest extends BaseCoreFunctionalTestCase {
 	}
 
 	@Entity(name = "Containing")
+	@Table(name = "xcontaining") // NuoDB: containing reserved word
 	private static class Containing {
 
 		@Id
